@@ -1,0 +1,3 @@
+[submodule "VBAO"]
+	path = VBAO
+	url = https://github.com/Meidozuki/VBAO.git
