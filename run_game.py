@@ -1,29 +1,32 @@
 import pygame
-from myMVVM import App
+
+from myMVVM import vbao
+from myMVVM import GameMainLogic, GameViewModel, Window
 
 
-class Window:
+class GameApp(vbao.App):
     def __init__(self):
-        pass
 
-    def start(self, title="Hello World"):
-        pygame.init()
-        pygame.display.set_caption(title)
-        screen = pygame.display.set_mode(size=(800, 600))
+        self.model = GameMainLogic()
+        self.viewmodel = GameViewModel(7, 5)
+        self.view = Window()
 
-        pic = pygame.image.load("local/img/craftpix-net-725990-octopus-jellyfish-shark-and-turtle-free-sprite-pixel-art/2/Idle.png")
-        screen.blit(pic,(100,100))
+    def bind(self, *args):
+        from myMVVM import VMRenderCommand
 
-class GameApp(App):
-    def __init__(self):
-        self.window = Window()
+        self.viewmodel.commands.update(prepareRender=
+                                       VMRenderCommand(self.viewmodel, self.view))
+        super().bind(self.model, self.viewmodel, self.view, True)
 
     def run(self):
+        self.bind()
+        self.viewmodel.runCommand("init")
+        self.viewmodel.runCommand("prepareRender")
 
         try:
-            self.window.start()
+            pygame.init()
 
-            some_flag=1
+            some_flag = 1
             while some_flag:
                 for event in pygame.event.get():
                     if event.type == pygame.QUIT:
@@ -35,6 +38,9 @@ class GameApp(App):
         finally:
             pygame.quit()
 
-if __name__ == '__main__':
+def main():
     app = GameApp()
     app.run()
+
+if __name__ == '__main__':
+    main()
