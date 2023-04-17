@@ -15,11 +15,19 @@ class GameMainLogic(vbao.Model):
 
         self.possible_grid_types = (0,3)
 
+    def ctx(self):
+        return ConstValue(self.board)
 
     def gameInit(self):
         self.row = self.property["row"].x
         self.col = self.property["col"].x
         self.board = np.random.randint(*self.possible_grid_types, [self.row, self.col])
 
-    def ctx(self):
-        return ConstValue(self.board)
+
+    def gameOver(self):
+
+        return self.calScore()
+
+    def calScore(self):
+        self.property["score"] = f()
+        self.triggerPropertyNotifications("score")

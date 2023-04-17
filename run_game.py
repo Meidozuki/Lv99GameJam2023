@@ -3,6 +3,7 @@ import pygame
 from myMVVM import vbao
 from myMVVM import GameMainLogic, GameViewModel, Window
 
+import threading
 
 class GameApp(vbao.App):
     def __init__(self):
@@ -26,16 +27,12 @@ class GameApp(vbao.App):
         try:
             pygame.init()
 
-            some_flag = 1
-            while some_flag:
-                for event in pygame.event.get():
-                    if event.type == pygame.QUIT:
-                        raise KeyboardInterrupt("Game window closed by user.")
-
-                    pygame.display.update()
+            self.view.timer.start()
+            self.view.startLoop()
         except KeyboardInterrupt as e:
             print(e.args)
         finally:
+            self.view.timer.cancel()
             pygame.quit()
 
 def main():
