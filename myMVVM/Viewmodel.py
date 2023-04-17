@@ -13,6 +13,9 @@ class GameViewModel(vbao.ViewModel):
     def getBoard(self):
         return self.model.ctx()
 
+    def stopGame(self):
+        return self.model.gameOver()
+
 class VMInitCommand(vbao.CommandBase):
     def __init__(self, viewmodel_ref):
         self._viewmodel = viewmodel_ref
@@ -30,3 +33,11 @@ class VMRenderCommand(vbao.CommandBase):
         with self._view.buffer_lock:
             self._view.buffer = self._viewmodel.getBoard().x
         self._viewmodel.triggerCommandNotifications("prepareRender", True)
+
+class VMGameStopCommand(vbao.CommandBase):
+    def __init__(self, viewmodel_ref):
+        self._viewmodel = viewmodel_ref
+
+    def execute(self):
+        self._viewmodel.stopGame()
+        self._viewmodel.triggerCommandNotifications("stop", True)
