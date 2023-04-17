@@ -1,20 +1,8 @@
-import os, sys
+from .common import vbao
 
-sys.path.append(r"D:\coding\git\VBAO\Lib_VBao\python")
+from .GameLogic import GameMainLogic
+from .GameUI import Window
+from .Viewmodel import GameViewModel
 
-from vbao import Model, ViewModel, View, App
+from .Viewmodel import VMRenderCommand
 
-
-class GameMainLogic(Model):
-    """
-    这是用来实现游戏业务逻辑的类
-
-    """
-    pass
-
-class GameViewModel(ViewModel):
-    pass
-
-
-class UserInterface(View):
-    pass
