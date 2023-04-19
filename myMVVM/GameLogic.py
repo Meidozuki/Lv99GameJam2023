@@ -4,6 +4,8 @@ import numpy as np
 from .common import vbao
 from .common import ConstValue
 
+import threading
+
 class GameMainLogic(vbao.Model):
     """
     这是用来实现游戏业务逻辑的类
@@ -33,7 +35,7 @@ class GameMainLogic(vbao.Model):
         self.col = self.property["col"].x
         self.board = self.generate([self.row, self.col])
 
-    def stepOnGrid(self, grid_no):
+    def stepOnGrid(self, grid_no, verbose=False):
         if self.board[0, grid_no] == 0:
             self.combo += 1
         else:
@@ -43,17 +45,25 @@ class GameMainLogic(vbao.Model):
         self.board[:-1] = self.board[1:]
         self.board[-1] = self.generate([1, self.col])
 
-        self.calScore()
+        # 更新score耗时少，直接新开线程，将主线程用于更新棋盘
+        score_thread = threading.Thread(target=self.calScore)
+        score_thread.start()
+
+        self.triggerPropertyNotifications("board")
+
+        score_thread.join()
+        if verbose:
+            self.printScore()
 
     def updateScore(self, pure=False):
         if pure:
             return self.score
 
-        self.score += self.combo*5
+        self.score += (self.combo+1)//2 * 5
 
 
     def calScore(self):
-        self.property["score"] = self.updateScore(pure=True)
+        self.property["score"] = int(self.updateScore(pure=True))
         self.triggerPropertyNotifications("score")
 
     def printScore(self):
