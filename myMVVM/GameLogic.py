@@ -33,7 +33,7 @@ class GameMainLogic(vbao.Model):
         self.col = self.property["col"].x
         self.board = self.generate([self.row, self.col])
 
-    def stepOnGrid(self, grid_no):
+    def stepOnGrid(self, grid_no, verbose=False):
         if self.board[0, grid_no] == 0:
             self.combo += 1
         else:
@@ -44,6 +44,9 @@ class GameMainLogic(vbao.Model):
         self.board[-1] = self.generate([1, self.col])
 
         self.calScore()
+        if verbose:
+            self.printScore()
+        self.triggerPropertyNotifications("board")
 
     def updateScore(self, pure=False):
         if pure:

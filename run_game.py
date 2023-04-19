@@ -7,17 +7,18 @@ import threading
 
 class GameApp(vbao.App):
     def __init__(self):
+        vbao.use_easydict()
 
         self.model = GameMainLogic()
         self.viewmodel = GameViewModel(7, 5)
-        self.view = Window()
+        self.window = Window()
 
     def bind(self, *args):
         from myMVVM import VMRenderCommand
 
         self.viewmodel.commands.update(prepareRender=
-                                       VMRenderCommand(self.viewmodel, self.view))
-        super().bind(self.model, self.viewmodel, self.view, True)
+                                       VMRenderCommand(self.viewmodel, self.window.view))
+        super().bind(self.model, self.viewmodel, self.window.view, True)
 
     def run(self):
         self.bind()
@@ -27,12 +28,12 @@ class GameApp(vbao.App):
         try:
             pygame.init()
 
-            self.view.timer.start()
-            self.view.startLoop()
+            self.window.timer.start()
+            self.window.startLoop()
         except KeyboardInterrupt as e:
             print(e.args)
         finally:
-            self.view.timer.cancel()
+            self.window.timer.cancel()
             pygame.quit()
 
 def main():
