@@ -4,9 +4,10 @@ from .common import vbao
 import threading
 import logging
 import itertools
+import numpy as np
 
 
-class Window(vbao.View):
+class View(vbao.View):
     def __init__(self):
         super().__init__()
         self.cmd_listener = CommandListener(self)
@@ -14,8 +15,9 @@ class Window(vbao.View):
         self.buffer = None
         self.buffer_lock = threading.Lock()
 
-        self.game_start = True
-        self.timer = threading.Timer(30, self.interruptGame)
+        self.blank_border = (200,50,100,100)
+
+    # About display
 
     def initWindow(self, title="Hello World"):
         pygame.display.set_caption(title)
@@ -25,8 +27,51 @@ class Window(vbao.View):
             "local/img/craftpix-net-725990-octopus-jellyfish-shark-and-turtle-free-sprite-pixel-art/2/Idle.png")
         self.screen.blit(pic, (100, 100))
 
+    @property
+    def windowSize(self):
+        """
+        :return: window size (width, height)
+        """
+        return pygame.display.get_surface().get_size()
+
+    @property
+    def boardZone(self):
+        w,h = self.windowSize
+        u,d,l,r = self.blank_border
+        return (u, h-d, l, w-r)
+
+    def handleRender(self):
+        with self.buffer_lock:
+            data = self.buffer
+
+        row, col = data.shape
+        u,d,l,r = self.boardZone
+        grid_h, grid_w = (d-u)/row, (r-l)/col
+        grid_size = np.array([grid_w, grid_h])
+        left_upper = np.array([l,u])
+        for i, j in itertools.product(range(row), range(col)):
+            pos = left_upper + grid_size * [j,i]
+            self.handleGrid(data[i, j], pos, grid_size)
+        pygame.display.flip()
+
+    def handleGrid(self, grid, pos, grid_size):
+        colors = {0: (0, 0, 255),
+                  1: (255, 255, 255)}
+        color = colors[grid]
+
+        rect = (*pos, *grid_size)
+        pygame.draw.rect(self.screen, color, rect)
+
+class Window:
+    def __init__(self):
+        self.view = View()
+
+        self.game_start = True
+        self.timer = threading.Timer(30, self.interruptGame)
+
+    # About game
     def interruptGame(self):
-        self.runCommand("stop")
+        self.view.runCommand("stop")
         # wait result
         # ...
         self.game_start = False
@@ -36,32 +81,25 @@ class Window(vbao.View):
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     raise KeyboardInterrupt("Game window closed by user.")
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    self.handleMouseClick(event.pos)
 
                 pygame.display.update()
 
-    def handleRender(self):
-        with self.buffer_lock:
-            data = self.buffer
+    def handleMouseClick(self, click_pos):
+        x,y = click_pos
+        u,d,l,r = self.view.boardZone
+        row,col = self.view.property.row.x, self.view.property.col.x
+        grid_h, grid_w = (d-u)/row, (r-l)/col
 
-        row, col = data.shape
-        self.grid_size = (50, 50)
-        for i, j in itertools.product(range(row), range(col)):
-            pos = [j * 50 + 200, i * 50 + 200]
-            self.handleGrid(data[i, j], pos)
-        pygame.display.flip()
-
-    def handleGrid(self, grid, pos):
-        colors = {0: (0, 0, 255),
-                  1: (0, 120, 120),
-                  2: (255, 255, 255)}
-        color = colors[grid]
-
-        rect = (*pos, *self.grid_size)
-        pygame.draw.rect(self.screen, color, rect)
+        x = np.clip(x,l,r)
+        idx = np.floor((x-l)/grid_w)
+        self.view.commands["step"].setParameter(idx)
+        self.view.runCommand("step")
 
 
 class CommandListener(vbao.CommandListenerBase):
-    def __init__(self, view: Window):
+    def __init__(self, view: View):
         super().__init__(view)
 
     def onCommandComplete(self, cmd_name: str, success: bool):
