@@ -1,7 +1,3 @@
-import os, sys
-sys.path.append(os.path.abspath("../VBAO/Lib_VBao/python"))
-# sys.path.insert(0,"D:/coding/git/VBAO/Lib_VBao/python")
-
 import vbao
 
 class ConstValue:
