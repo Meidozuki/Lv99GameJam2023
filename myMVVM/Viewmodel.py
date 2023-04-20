@@ -25,7 +25,7 @@ class GameViewModel(vbao.ViewModel):
         return self.model.gameOver()
 
     def stepOnGrid(self,idx):
-        self.model.stepOnGrid(idx, True)
+        self.model.stepOnGrid(idx)
 
 class VMListener(vbao.PropertyListenerBase):
     def __init__(self, viewmodel_ref: GameViewModel):
