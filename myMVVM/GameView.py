@@ -6,6 +6,28 @@ import threading
 import logging
 import itertools
 import numpy as np
+from functools import wraps
+from easydict import EasyDict
+
+class LoopThread:
+    @wraps(threading.Thread.__init__)
+    def __init__(self, target, args=None, **kwargs):
+        if args is None:
+            args = []
+
+        def f():
+            while self.running:
+                target(*args,**kwargs)
+
+        self.thread = threading.Thread(target=f)
+        self.running = True
+
+    def start(self):
+        self.thread.start()
+
+    def stop(self):
+        self.running = False
+        self.thread.join()
 
 
 class View(vbao.View):
@@ -17,9 +39,21 @@ class View(vbao.View):
         self.buffer = None
         self.buffer_lock = threading.Lock()
 
-        self.blank_border = (200, 50, 100, 50)
-        self.score_pos = [(500,50), None]
+        self.running_threads=[]
 
+        self.blank_border = (200, 50, 100, 50)
+        self.score_pos = [(500, 50), None]
+
+        self.HP_bar_opt = EasyDict({
+            'pos': np.array((100, 10)),
+            'size': np.array((200, 25)),
+            'blank': np.array((3,0)),
+            'color': ((200, 0, 0), (100, 0, 0)),
+            'bgcolor': [192]*3
+        })
+        border = np.array([4,3])
+        self.HP_bar_opt.background = pygame.Rect(self.HP_bar_opt.pos - border,
+                                                 self.HP_bar_opt.size + border*2 - self.HP_bar_opt.blank)
 
     @property
     def windowSize(self):
@@ -37,8 +71,19 @@ class View(vbao.View):
         u, d, l, r = self.blank_border
         return (u, h - d, l, w - r)
 
-
     # About display
+    def loadGif(self, img, pos, frames=4, interval=0.3):
+        w,h = img.get_size()
+        wi = w//frames
+
+        for i in range(frames):
+            rect=[i*wi,0,wi,h]
+            sub = img.subsurface(rect)
+            self.screen.blit(sub,pos)
+            start = time.time()
+            while time.time() - start < interval:
+                pass
+
     def initWindow(self, title="Hello World"):
         pygame.display.set_caption(title)
         self.screen = pygame.display.set_mode(size=(800, 600))
@@ -47,7 +92,11 @@ class View(vbao.View):
 
         pic = pygame.image.load(
             "local/img/Idle.png")
-        self.screen.blit(pic, (100, 100))
+        w,h = pic.get_size()
+        pic = pygame.transform.scale(pic,[w*2,h*2])
+        thread = LoopThread(target=self.loadGif,args=[pic,(100, 100)])
+        thread.start()
+        self.running_threads.append(thread)
 
     def getFont(self, size=12):
         return pygame.font.Font("./local/font/x16y32pxGridGazer.ttf", size)
@@ -73,13 +122,28 @@ class View(vbao.View):
 
         text = self.getTextFigure(font, str(self.property.score))
         self.drawAndCover(text, self.score_pos[1])
-        print(self.property.score)
 
-    def displayTime(self,start,countdown):
+    def displayTime(self, start, countdown):
         font = self.getFont(20)
         time_ = time.time()
-        text = self.getTextFigure(font, "{:.2f}".format(countdown - (time_-start)))
-        self.drawAndCover(text, (200,50))
+        text = self.getTextFigure(font, "{:.2f}".format(countdown - (time_ - start)))
+        self.drawAndCover(text, (200, 50))
+
+    def displayPlayerStatus(self):
+        cur, maxHP = self.property.HP, self.property.maxHP
+        HP_pos = self.HP_bar_opt.pos
+        remain_color, lost_color = self.HP_bar_opt.color
+        bar_width, height = self.HP_bar_opt.size
+        grid_width = bar_width / maxHP
+        grid_wh = np.array([grid_width, height]) - self.HP_bar_opt.blank
+
+        pygame.draw.rect(self.screen, self.HP_bar_opt.bgcolor, self.HP_bar_opt.background)
+        for i in range(maxHP):
+            color = np.where(i < cur, remain_color, lost_color)
+            pos = HP_pos + np.array([grid_width, 0]) * i
+            pygame.draw.rect(self.screen, color, [pos, grid_wh])
+
+        MP_pos = (100, 60)
 
     def handleRender(self):
         with self.buffer_lock:
@@ -105,8 +169,6 @@ class View(vbao.View):
         pygame.draw.rect(self.screen, color, rect)
 
 
-
-
 class CommandListener(vbao.CommandListenerBase):
     def __init__(self, view: View):
         super().__init__(view)
@@ -126,6 +188,7 @@ class CommandListener(vbao.CommandListenerBase):
                 pass
             case _:
                 logging.warning(f"uncaught cmd {cmd_name}")
+
 
 class PropertyListener(vbao.PropertyListenerBase):
     def __init__(self, view: View):
