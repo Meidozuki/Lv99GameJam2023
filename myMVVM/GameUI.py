@@ -1,6 +1,7 @@
 import pygame
 from .common import vbao
 
+import time
 import threading
 import logging
 import itertools
@@ -18,7 +19,7 @@ class View(vbao.View):
         self.buffer_lock = threading.Lock()
 
         self.blank_border = (200, 50, 100, 50)
-        self.score_pos = [(0,100), None]
+        self.score_pos = [(500,50), None]
 
 
     @property
@@ -52,22 +53,33 @@ class View(vbao.View):
     def getFont(self, size=12):
         return pygame.font.Font("./local/font/x16y32pxGridGazer.ttf", size)
 
-    def drawText(self, font, text, color='0xffffff', *args):
+    def getTextFigure(self, font, text, color='0xffffff', *args):
         return font.render(text, True, color, *args)
+
+    def drawAndCover(self, img, pos):
+        rect = pygame.Rect(pos, img.get_size())
+        self.screen.fill('0x000000', rect)
+        self.screen.blit(img, pos)
+        pygame.display.update(rect)
 
     def displayScore(self, first=False):
         font = self.getFont(30)
         if first:
-            text = self.drawText(font, "Score: ")
-            width = text.get_size()[0]
+            text = self.getTextFigure(font, "Score: ")
             pos0 = self.score_pos[0]
             self.screen.blit(text, pos0)
+
+            width = text.get_size()[0]
             self.score_pos[1] = (pos0[0] + width, pos0[1])
 
-        text = self.drawText(font, str(self.property.score))
-        rect = pygame.Rect(self.score_pos[1], text.get_size())
-        self.screen.fill('0x000000', rect)
-        self.screen.blit(text, self.score_pos[1])
+        text = self.getTextFigure(font, str(self.property.score))
+        self.drawAndCover(text, self.score_pos[1])
+
+    def displayTime(self,start,countdown):
+        font = self.getFont(20)
+        time_ = time.time()
+        text = self.getTextFigure(font, "{:.2f}".format(countdown - (time_-start)))
+        self.drawAndCover(text, (200,50))
 
     def handleRender(self):
         with self.buffer_lock:
@@ -98,7 +110,8 @@ class Window:
         self.view = View()
 
         self.game_start = True
-        self.timer = threading.Timer(30, self.interruptGame)
+        self.timer_countdown = 30
+        self.timer = threading.Timer(self.timer_countdown, self.interruptGame)
 
     # About game
     def interruptGame(self):
@@ -108,6 +121,7 @@ class Window:
         self.game_start = False
 
     def startLoop(self):
+        start = time.time()
         while self.game_start:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -116,6 +130,7 @@ class Window:
                     self.handleMouseClick(event.pos)
 
                 pygame.display.update()
+            self.view.displayTime(start, self.timer_countdown)
 
     def handleMouseClick(self, click_pos):
         x, y = click_pos
@@ -123,7 +138,7 @@ class Window:
         row, col = self.view.property.row.x, self.view.property.col.x
         grid_h, grid_w = (d - u) / row, (r - l) / col
 
-        x = np.clip(x, l, r)
+        x = np.clip(x, l, r-1)
         idx = np.floor((x - l) / grid_w)
         self.view.commands["step"].setParameter(idx)
         self.view.runCommand("step")
@@ -158,7 +173,6 @@ class PropertyListener(vbao.PropertyListenerBase):
         logging.info(f"View receive property notif {prop_name}")
         match prop_name:
             case "score":
-                print(self.master.property.score)
                 self.master.displayScore()
             case _:
                 logging.warning(f"uncaught prop {prop_name}")

@@ -27,7 +27,6 @@ class GameApp(vbao.App):
         self.viewmodel.runCommand("prepareRender")
 
         try:
-
             self.window.timer.start()
             self.window.startLoop()
         except KeyboardInterrupt as e:
