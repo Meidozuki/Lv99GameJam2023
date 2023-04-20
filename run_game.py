@@ -33,6 +33,8 @@ class GameApp(vbao.App):
             print(e.args)
         finally:
             self.window.timer.cancel()
+            for th in self.window.view.running_threads:
+                th.stop()
             pygame.quit()
 
 def main():
