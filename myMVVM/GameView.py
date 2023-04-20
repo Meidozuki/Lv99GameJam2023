@@ -104,6 +104,11 @@ class View(vbao.View):
     def getTextFigure(self, font, text, color='0xffffff', *args):
         return font.render(text, True, color, *args)
 
+    def splitViewColumn(self):
+        # TODO:给棋盘的每个列画线分开
+        zone = self.boardZone
+        pygame.draw.aaline(self.screen,...)
+
     def drawAndCover(self, img, pos):
         rect = pygame.Rect(pos, img.get_size())
         self.screen.fill('0x000000', rect)
