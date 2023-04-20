@@ -64,6 +64,7 @@ class GameMainLogic(vbao.Model):
 
     def calScore(self):
         self.property["score"] = int(self.updateScore(pure=True))
+        print(self.property["score"])
         self.triggerPropertyNotifications("score")
 
     def printScore(self):
