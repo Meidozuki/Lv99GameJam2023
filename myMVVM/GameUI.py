@@ -1,31 +1,26 @@
 import pygame
 from .common import vbao
 
+import time
 import threading
 import logging
 import itertools
 import numpy as np
+from functools import partial
 
 
 class View(vbao.View):
     def __init__(self):
         super().__init__()
+        self.prop_listener = PropertyListener(self)
         self.cmd_listener = CommandListener(self)
 
         self.buffer = None
         self.buffer_lock = threading.Lock()
 
-        self.blank_border = (200,50,100,100)
+        self.blank_border = (200, 50, 100, 50)
+        self.score_pos = [(500,50), None]
 
-    # About display
-
-    def initWindow(self, title="Hello World"):
-        pygame.display.set_caption(title)
-        self.screen = pygame.display.set_mode(size=(800, 600))
-
-        pic = pygame.image.load(
-            "local/img/craftpix-net-725990-octopus-jellyfish-shark-and-turtle-free-sprite-pixel-art/2/Idle.png")
-        self.screen.blit(pic, (100, 100))
 
     @property
     def windowSize(self):
@@ -36,21 +31,68 @@ class View(vbao.View):
 
     @property
     def boardZone(self):
-        w,h = self.windowSize
-        u,d,l,r = self.blank_border
-        return (u, h-d, l, w-r)
+        """
+        :return: area box for board (up, down, left,right)
+        """
+        w, h = self.windowSize
+        u, d, l, r = self.blank_border
+        return (u, h - d, l, w - r)
+
+
+    # About display
+    def initWindow(self, title="Hello World"):
+        pygame.display.set_caption(title)
+        self.screen = pygame.display.set_mode(size=(800, 600))
+
+        self.displayScore(True)
+
+        pic = pygame.image.load(
+            "local/img/craftpix-net-725990-octopus-jellyfish-shark-and-turtle-free-sprite-pixel-art/2/Idle.png")
+        self.screen.blit(pic, (100, 100))
+
+    def getFont(self, size=12):
+        return pygame.font.Font("./local/font/x16y32pxGridGazer.ttf", size)
+
+    def getTextFigure(self, font, text, color='0xffffff', *args):
+        return font.render(text, True, color, *args)
+
+    def drawAndCover(self, img, pos):
+        rect = pygame.Rect(pos, img.get_size())
+        self.screen.fill('0x000000', rect)
+        self.screen.blit(img, pos)
+        pygame.display.update(rect)
+
+    def displayScore(self, first=False):
+        font = self.getFont(30)
+        if first:
+            text = self.getTextFigure(font, "Score: ")
+            pos0 = self.score_pos[0]
+            self.screen.blit(text, pos0)
+
+            width = text.get_size()[0]
+            self.score_pos[1] = (pos0[0] + width, pos0[1])
+
+        text = self.getTextFigure(font, str(self.property.score))
+        self.drawAndCover(text, self.score_pos[1])
+
+    def displayTime(self,start,countdown):
+        font = self.getFont(20)
+        time_ = time.time()
+        text = self.getTextFigure(font, "{:.2f}".format(countdown - (time_-start)))
+        self.drawAndCover(text, (200,50))
 
     def handleRender(self):
         with self.buffer_lock:
             data = self.buffer
 
         row, col = data.shape
-        u,d,l,r = self.boardZone
-        grid_h, grid_w = (d-u)/row, (r-l)/col
+        u, d, l, r = self.boardZone
+        grid_h, grid_w = (d - u) / row, (r - l) / col
         grid_size = np.array([grid_w, grid_h])
-        left_upper = np.array([l,u])
+        left_upper = np.array([l, u])
+
         for i, j in itertools.product(range(row), range(col)):
-            pos = left_upper + grid_size * [j,i]
+            pos = left_upper + grid_size * [j, i]
             self.handleGrid(data[i, j], pos, grid_size)
         pygame.display.flip()
 
@@ -62,12 +104,14 @@ class View(vbao.View):
         rect = (*pos, *grid_size)
         pygame.draw.rect(self.screen, color, rect)
 
+
 class Window:
     def __init__(self):
         self.view = View()
 
         self.game_start = True
-        self.timer = threading.Timer(30, self.interruptGame)
+        self.timer_countdown = 30
+        self.timer = threading.Timer(self.timer_countdown, self.interruptGame)
 
     # About game
     def interruptGame(self):
@@ -77,6 +121,7 @@ class Window:
         self.game_start = False
 
     def startLoop(self):
+        start = time.time()
         while self.game_start:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -85,17 +130,19 @@ class Window:
                     self.handleMouseClick(event.pos)
 
                 pygame.display.update()
+            self.view.displayTime(start, self.timer_countdown)
 
     def handleMouseClick(self, click_pos):
-        x,y = click_pos
-        u,d,l,r = self.view.boardZone
-        row,col = self.view.property.row.x, self.view.property.col.x
-        grid_h, grid_w = (d-u)/row, (r-l)/col
+        x, y = click_pos
+        u, d, l, r = self.view.boardZone
+        row, col = self.view.property.row.x, self.view.property.col.x
+        grid_h, grid_w = (d - u) / row, (r - l) / col
 
-        x = np.clip(x,l,r)
-        idx = np.floor((x-l)/grid_w)
+        x = np.clip(x, l, r-1)
+        idx = np.floor((x - l) / grid_w)
         self.view.commands["step"].setParameter(idx)
         self.view.runCommand("step")
+
 
 
 class CommandListener(vbao.CommandListenerBase):
@@ -113,3 +160,19 @@ class CommandListener(vbao.CommandListenerBase):
                 self.master.handleRender()
             case "stop":
                 if not success: return
+            case "step":
+                pass
+            case _:
+                logging.warning(f"uncaught cmd {cmd_name}")
+
+class PropertyListener(vbao.PropertyListenerBase):
+    def __init__(self, view: View):
+        super().__init__(view)
+
+    def onPropertyChanged(self, prop_name: str):
+        logging.info(f"View receive property notif {prop_name}")
+        match prop_name:
+            case "score":
+                self.master.displayScore()
+            case _:
+                logging.warning(f"uncaught prop {prop_name}")

@@ -21,13 +21,12 @@ class GameApp(vbao.App):
         super().bind(self.model, self.viewmodel, self.window.view, True)
 
     def run(self):
+        pygame.init()
         self.bind()
         self.viewmodel.runCommand("init")
         self.viewmodel.runCommand("prepareRender")
 
         try:
-            pygame.init()
-
             self.window.timer.start()
             self.window.startLoop()
         except KeyboardInterrupt as e:

@@ -10,6 +10,7 @@ class GameViewModel(vbao.ViewModel):
 
         self.property["row"] = ConstValue(row)
         self.property["col"] = ConstValue(col)
+        self.property["score"] = 0
 
         self.commands["prepareRender"] = ValueError("Not set yet")
         self.commands["init"] = VMInitCommand(self)
@@ -24,7 +25,7 @@ class GameViewModel(vbao.ViewModel):
         return self.model.gameOver()
 
     def stepOnGrid(self,idx):
-        self.model.stepOnGrid(idx, True)
+        self.model.stepOnGrid(idx)
 
 class VMListener(vbao.PropertyListenerBase):
     def __init__(self, viewmodel_ref: GameViewModel):
@@ -35,6 +36,10 @@ class VMListener(vbao.PropertyListenerBase):
         match prop_name:
             case "board":
                 self.master.runCommand("prepareRender")
+            case "score":
+                self.master.triggerPropertyNotifications("score")
+            case _:
+                logging.warning(f"uncaught prop {prop_name}")
 
 
 
