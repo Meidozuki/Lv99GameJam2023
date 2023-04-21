@@ -163,6 +163,17 @@ class View(vbao.View):
         for i, j in itertools.product(range(row), range(col)):
             pos = left_upper + grid_size * [j, i]
             self.handleGrid(data[i, j], pos, grid_size)
+
+        # 划分泳道：在前4条泳道的右边缘，绘制分割线
+        border_h, border_w = (d - u), 5 # 分割线矩形的高宽
+        border_size = np.array([border_w, border_h]) # 分割线矩形的尺寸
+        border_color = (255, 0, 0) # 分割线的颜色
+        for i in range(1, 5):
+            delta_x = grid_w * i # 横坐标偏移量
+            pos = left_upper + [delta_x, 0]
+            border_rect = (*pos, *border_size)
+            pygame.draw.rect(self.screen, border_color, border_rect)
+
         pygame.display.flip()
 
     def handleGrid(self, grid, pos, grid_size):
