@@ -1,4 +1,6 @@
 import pygame
+
+import vbao
 from .GameView import View
 
 import time
@@ -10,6 +12,7 @@ import numpy as np
 class Window:
     def __init__(self):
         self.view = View()
+        self.view.upper_notify = GameOverMessage(self)
 
         self.game_start = True
         self.timer_countdown = 30
@@ -47,6 +50,13 @@ class Window:
         idx = np.floor((x - l) / grid_w)
         self.view.commands["step"].setParameter(idx)
         self.view.runCommand("step")
+
+class GameOverMessage(vbao.CommandListenerBase):
+    def onCommandComplete(self, cmd_name: str, success: bool):
+        logging.info(f"Window receive command notif from view {cmd_name}")
+        match cmd_name:
+            case "gameOver":
+                self.master.game_start = False
 
 
 class StateInGame:

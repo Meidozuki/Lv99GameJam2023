@@ -35,9 +35,11 @@ class View(vbao.View):
         super().__init__()
         self.prop_listener = PropertyListener(self)
         self.cmd_listener = CommandListener(self)
+        self.upper_notify = None
 
         self.buffer = None
         self.buffer_lock = threading.Lock()
+        self.player_pos_lock = threading.Lock()
 
         self.running_threads=[]
 
@@ -71,6 +73,12 @@ class View(vbao.View):
         u, d, l, r = self.blank_border
         return (u, h - d, l, w - r)
 
+    def getFont(self, size=12):
+        return pygame.font.Font("./local/font/x16y32pxGridGazer.ttf", size)
+
+    def getTextFigure(self, font, text, color='0xffffff', *args):
+        return font.render(text, True, color, *args)
+
     # About display
     def loadGif(self, img, pos, frames=4, interval=0.3):
         w,h = img.get_size()
@@ -89,7 +97,10 @@ class View(vbao.View):
         self.screen = pygame.display.set_mode(size=(800, 600))
 
         self.displayScore(True)
+        self.displayTurtle()
 
+
+    def displayTurtle(self):
         pic = pygame.image.load(
             "local/img/Idle.png")
         w,h = pic.get_size()
@@ -98,11 +109,6 @@ class View(vbao.View):
         thread.start()
         self.running_threads.append(thread)
 
-    def getFont(self, size=12):
-        return pygame.font.Font("./local/font/x16y32pxGridGazer.ttf", size)
-
-    def getTextFigure(self, font, text, color='0xffffff', *args):
-        return font.render(text, True, color, *args)
 
     def splitViewColumn(self):
         # TODO:给棋盘的每个列画线分开
@@ -200,6 +206,8 @@ class CommandListener(vbao.CommandListenerBase):
                 self.master.handleRender()
             case "stop":
                 if not success: return
+                print("final score:", self.master.property.score)
+                self.master.upper_notify.onCommandComplete("gameOver",True)
             case "step":
                 pass
             case _:
