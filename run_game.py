@@ -8,6 +8,8 @@ from myMVVM import vbao
 from myMVVM import GameMainLogic, GameViewModel, Window
 
 import threading
+import logging
+# logging.basicConfig(level=logging.INFO)
 
 class GameApp(vbao.App):
     def __init__(self):
