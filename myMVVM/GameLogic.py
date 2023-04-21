@@ -41,6 +41,7 @@ class GameMainLogic(vbao.Model):
         else:
             self.combo = 0
             self.property["HP"] -= 1
+            self.triggerPropertyNotifications("HP")
         self.updateScore()
 
         self.board[:-1] = self.board[1:]
