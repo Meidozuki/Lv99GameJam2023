@@ -1,3 +1,6 @@
+import os, sys
+sys.path.append(os.path.abspath("./VBAO/Lib_VBao/python"))
+
 import pygame
 
 from myMVVM import vbao
