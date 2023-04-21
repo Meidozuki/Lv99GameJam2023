@@ -9,6 +9,7 @@ import numpy as np
 from functools import wraps
 from easydict import EasyDict
 
+
 class LoopThread:
     @wraps(threading.Thread.__init__)
     def __init__(self, target, args=None, **kwargs):
@@ -17,7 +18,7 @@ class LoopThread:
 
         def f():
             while self.running:
-                target(*args,**kwargs)
+                target(*args, **kwargs)
 
         self.thread = threading.Thread(target=f)
         self.running = True
@@ -39,7 +40,7 @@ class View(vbao.View):
         self.buffer = None
         self.buffer_lock = threading.Lock()
 
-        self.running_threads=[]
+        self.running_threads = []
 
         self.blank_border = (200, 50, 100, 50)
         self.score_pos = [(500, 50), None]
@@ -47,13 +48,13 @@ class View(vbao.View):
         self.HP_bar_opt = EasyDict({
             'pos': np.array((100, 10)),
             'size': np.array((200, 25)),
-            'blank': np.array((3,0)),
+            'blank': np.array((3, 0)),
             'color': ((200, 0, 0), (100, 0, 0)),
-            'bgcolor': [192]*3
+            'bgcolor': [192] * 3
         })
-        border = np.array([4,3])
+        border = np.array([4, 3])
         self.HP_bar_opt.background = pygame.Rect(self.HP_bar_opt.pos - border,
-                                                 self.HP_bar_opt.size + border*2 - self.HP_bar_opt.blank)
+                                                 self.HP_bar_opt.size + border * 2 - self.HP_bar_opt.blank)
 
     @property
     def windowSize(self):
@@ -73,13 +74,13 @@ class View(vbao.View):
 
     # About display
     def loadGif(self, img, pos, frames=4, interval=0.3):
-        w,h = img.get_size()
-        wi = w//frames
+        w, h = img.get_size()
+        wi = w // frames
 
         for i in range(frames):
-            rect=[i*wi,0,wi,h]
+            rect = [i * wi, 0, wi, h]
             sub = img.subsurface(rect)
-            self.screen.blit(sub,pos)
+            self.screen.blit(sub, pos)
             start = time.time()
             while time.time() - start < interval:
                 pass
@@ -92,9 +93,9 @@ class View(vbao.View):
 
         pic = pygame.image.load(
             "local/img/Idle.png")
-        w,h = pic.get_size()
-        pic = pygame.transform.scale(pic,[w*2,h*2])
-        thread = LoopThread(target=self.loadGif,args=[pic,(100, 100)])
+        w, h = pic.get_size()
+        pic = pygame.transform.scale(pic, [w * 2, h * 2])
+        thread = LoopThread(target=self.loadGif, args=[pic, (100, 100)])
         thread.start()
         self.running_threads.append(thread)
 
@@ -145,6 +146,20 @@ class View(vbao.View):
 
         MP_pos = (100, 60)
 
+    def splitBoardColumn(self, grid_w, border_w=5):
+        # 划分泳道：在前4条泳道的右边缘，绘制分割线
+        u, d, l, r = self.boardZone
+        left_upper = np.array([l, u])
+        # pygame.draw.aaline(self.screen,...)
+        border_h, border_w = (d - u), border_w  # 分割线矩形的高宽
+        border_size = np.array([border_w, border_h])  # 分割线矩形的尺寸
+        border_color = (255, 0, 0)  # 分割线的颜色
+        for i in range(1, 5):
+            delta_x = grid_w * i  # 横坐标偏移量
+            pos = left_upper + [delta_x, 0]
+            border_rect = (*pos, *border_size)
+            pygame.draw.rect(self.screen, border_color, border_rect)
+
     def handleRender(self):
         with self.buffer_lock:
             data = self.buffer
@@ -158,6 +173,8 @@ class View(vbao.View):
         for i, j in itertools.product(range(row), range(col)):
             pos = left_upper + grid_size * [j, i]
             self.handleGrid(data[i, j], pos, grid_size)
+
+        self.splitBoardColumn(grid_w)
         pygame.display.flip()
 
     def handleGrid(self, grid, pos, grid_size):
