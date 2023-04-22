@@ -26,7 +26,7 @@ class GameViewModel(vbao.ViewModel):
         return self.model.gameOver()
 
     def stepOnGrid(self,idx):
-        self.property["playerPos"] = 0
+        self.property["playerPos"] = idx
         self.triggerPropertyNotifications("playerPos")
         self.model.stepOnGrid(idx)
 

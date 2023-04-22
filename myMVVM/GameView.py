@@ -9,6 +9,12 @@ import numpy as np
 from functools import wraps
 from easydict import EasyDict
 
+def scalePic(pic, factor):
+    w,h = pic.get_size()
+    target = (int(w*factor), int(h*factor))
+    return pygame.transform.scale(pic, target)
+
+
 
 class LoopThread:
     @wraps(threading.Thread.__init__)
@@ -73,6 +79,19 @@ class View(vbao.View):
         w, h = self.windowSize
         u, d, l, r = self.blank_border
         return (u, h - d, l, w - r)
+    @property
+    def boardRect(self):
+        w, h = self.windowSize
+        u, d, l, r = self.blank_border
+        u,d,l,r = (u, h - d, l, w - r)
+        return (l,u),(r-l,d-u)
+
+
+    @property
+    def playerRect(self):
+        u,d,l,r = self.boardZone
+        height = 50
+        return l, u-height, r-l, height
 
     def getFont(self, size=12):
         return pygame.font.Font("./local/font/x16y32pxGridGazer.ttf", size)
@@ -82,13 +101,16 @@ class View(vbao.View):
 
     # About display
     def loadGif(self, img, pos, frames=4, interval=0.3):
+        if not callable(pos):
+            p = pos
+            pos = lambda: p
         w, h = img.get_size()
         wi = w // frames
 
         for i in range(frames):
             rect = [i * wi, 0, wi, h]
             sub = img.subsurface(rect)
-            self.screen.blit(sub, pos)
+            self.drawAndCover(sub, pos())
             start = time.time()
             while time.time() - start < interval:
                 pass
@@ -97,18 +119,50 @@ class View(vbao.View):
         pygame.display.set_caption(title)
         self.screen = pygame.display.set_mode(size=(800, 600))
 
+        self.playJumpAnim()
+        self.screen.fill('0x000000')
         self.displayScore(True)
         self.displayTurtle()
 
 
     def displayTurtle(self):
-        pic = pygame.image.load(
-            "local/img/Idle.png")
-        w, h = pic.get_size()
-        pic = pygame.transform.scale(pic, [w * 2, h * 2])
-        thread = LoopThread(target=self.loadGif, args=[pic, (100, 100)])
+        pic = pygame.image.load("local/img/Idle.png")
+        pic = scalePic(pic, 2)
+        thread = LoopThread(target=self.loadGif, args=[pic, (100, 70)])
         thread.start()
         self.running_threads.append(thread)
+
+    def handlePlayerPos(self):
+        img = pygame.image.load("local/img/Swim.png")
+        frames = 6
+
+        w, h = img.get_size()
+        wi = w // frames
+        _, (width, _) = self.boardRect
+        offset = width // self.property.col.x
+
+        def frame():
+            for i in range(frames):
+                self.screen.fill('0x000000', self.playerRect)
+                rect = [i * wi, 0, wi, h]
+                sub = img.subsurface(rect)
+                idx = self.property.playerPos
+                pos = self.playerRect[0] + idx*offset, self.playerRect[1]
+                self.drawAndCover(sub, pos)
+                start = time.time()
+                while time.time() - start < 0.1:
+                    pass
+
+        thread = LoopThread(target=frame)
+        thread.start()
+        self.running_threads.append(thread)
+
+    def playJumpAnim(self):
+        pic = pygame.image.load("local/img/Jump.png")
+        pic = scalePic(pic, 3)
+        x = int(self.screen.get_size()[0] * 0.4)
+        y = self.boardZone[0] - 50
+        self.loadGif(pic, (x,y), 6, 0.2)
 
 
     def drawAndCover(self, img, pos):
@@ -159,14 +213,14 @@ class View(vbao.View):
         # pygame.draw.aaline(self.screen,...)
         border_h, border_w = (d - u), border_w  # 分割线矩形的高宽
         border_size = np.array([border_w, border_h])  # 分割线矩形的尺寸
-        border_color = (255, 0, 0)  # 分割线的颜色
+        border_color = '0x00BFFF'  # 分割线的颜色
         for i in range(1, 5):
             delta_x = grid_w * i  # 横坐标偏移量
             pos = left_upper + [delta_x, 0]
             border_rect = (*pos, *border_size)
             pygame.draw.rect(self.screen, border_color, border_rect)
 
-    def handleRender(self):
+    def handleBoardRender(self):
         with self.buffer_lock:
             data = self.buffer
 
@@ -184,8 +238,8 @@ class View(vbao.View):
         pygame.display.flip()
 
     def handleGrid(self, grid, pos, grid_size):
-        colors = {0: (0, 0, 255),
-                  1: (255, 255, 255)}
+        colors = {0: '0x0000FF',
+                  1: '0xFFFFFF'}
         color = colors[grid]
 
         rect = (*pos, *grid_size)
@@ -202,9 +256,10 @@ class CommandListener(vbao.CommandListenerBase):
             case "init":
                 if not success: raise RuntimeError
                 self.master.initWindow()
+                self.master.handlePlayerPos()
             case "prepareRender":
                 if not success: return
-                self.master.handleRender()
+                self.master.handleBoardRender()
             case "stop":
                 if not success: return
                 print("final score:", self.master.property.score)
@@ -224,5 +279,7 @@ class PropertyListener(vbao.PropertyListenerBase):
         match prop_name:
             case "score":
                 self.master.displayScore()
+            case "playerPos":
+                pass
             case _:
                 logging.warning(f"uncaught prop {prop_name}")
