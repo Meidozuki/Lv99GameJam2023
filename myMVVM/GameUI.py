@@ -21,8 +21,9 @@ class Window:
 
         self.state = None
 
-    def initGame(self):
-        self.state = StateAtMenu(self)
+    def quitGame(self):
+        self.game_start = False
+        self.view.clearScreen()
 
     # About game
     def interruptGame(self):
@@ -31,31 +32,13 @@ class Window:
         # ...
         self.game_start = False
 
-    def startLoop(self):
-        state = StateInGame(self)
-        start = time.time()
+    def loop(self):
+        state_info = StateAtMenu
+        while state_info != StateClosed:
+            print(state_info)
+            self.state = state_info(self)
+            state_info = self.state.wait()
 
-        while self.game_start:
-            self.view.displayTime(start, self.timer_countdown)
-            self.view.displayPlayerStatus()
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    raise KeyboardInterrupt("Game window closed by user.")
-                elif event.type == pygame.MOUSEBUTTONDOWN:
-                    self.handleMouseClick(event.pos)
-
-            pygame.display.flip()
-
-    def handleMouseClick(self, click_pos):
-        x, y = click_pos
-        u, d, l, r = self.view.boardZone
-        row, col = self.view.property.row.x, self.view.property.col.x
-        grid_h, grid_w = (d - u) / row, (r - l) / col
-
-        x = np.clip(x, l, r - 1)
-        idx = np.floor((x - l) / grid_w)
-        self.view.commands["step"].setParameter(idx)
-        self.view.runCommand("step")
 
 class GameOverMessage(vbao.CommandListenerBase):
     def onCommandComplete(self, cmd_name: str, success: bool):
@@ -64,14 +47,29 @@ class GameOverMessage(vbao.CommandListenerBase):
             case "gameOver":
                 self.master.game_start = False
 
-class StateAtMenu:
+class FSMState:
+    def __init__(self):
+        self.running = True
+        self.next_state = None
+
+    def stop(self):
+        self.running = False
+        self.next_state = StateClosed
+
+class StateClosed(FSMState):
     def __init__(self, window_ref):
+        super().__init__()
+
+
+class StateAtMenu(FSMState):
+    def __init__(self, window_ref):
+        super().__init__()
         self.window = window_ref
-        w,h = self.window.view.windowSize
-        lu = w*0.4, h*0.5
-        wh = w*0.2, 40
-        self.start_button_zone = pygame.Rect(lu,wh)
-        self.end_button_zone = pygame.Rect(lu[0], lu[1]+wh[1]+10, *wh)
+        w, h = self.window.view.windowSize
+        lu = w * 0.4, h * 0.5
+        wh = w * 0.2, 40
+        self.start_button_zone = pygame.Rect(lu, wh)
+        self.end_button_zone = pygame.Rect(lu[0], lu[1] + wh[1] + 10, *wh)
 
     def wait(self):
         view = self.window.view
@@ -80,23 +78,70 @@ class StateAtMenu:
         self.window.view.showMainTitle(self.start_button_zone, self.end_button_zone)
 
         pygame.display.flip()
-        while True:
+        while self.running:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
-                    raise KeyboardInterrupt("Game window closed by user.")
+                    self.stop()
                 elif event.type == pygame.MOUSEBUTTONDOWN:
                     self.handleMouseClick(event.pos)
 
+        return self.next_state
+
+    def handleMouseClick(self, click_pos):
+        x, y = click_pos
+        start = self.start_button_zone
+        end = self.end_button_zone
+        if start.x < x < start.x + start.width \
+                and start.y < y < start.y + start.height:
+            self.stop()
+            self.next_state = StateInGame
+        elif end.x < x < end.x + end.width \
+                and end.y < y < end.y + end.height:
+            self.stop()
 
 
-class StateInGame:
+class StateInGame(FSMState):
     def __init__(self, window_ref, game_time=30, max_hp: int = 3):
+        super().__init__()
         self.window = window_ref
         self.game_time = game_time
         self.maxHP = max_hp
-        self.HP = max_hp
         self.window.view.property["HP"] = max_hp
         self.window.view.property["maxHP"] = max_hp
 
+    def wait(self):
+        self.startGame()
+        return self.next_state
+
     def startGame(self):
-        self.window.view.displayPlayerStatus()
+        view = self.window.view
+        view.runCommand("prepareRender")
+        start = time.time()
+
+        while self.running:
+            view.displayTime(start, self.window.timer_countdown)
+            view.displayPlayerStatus()
+            if view.property.HP <= 0:
+                self.stop()
+                break
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self.stop()
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    self.handleMouseClick(event.pos)
+
+            pygame.display.flip()
+
+
+    def handleMouseClick(self, click_pos):
+        view = self.window.view
+        x, y = click_pos
+        u, d, l, r = view.boardZone
+        row, col = view.property.row.x, view.property.col.x
+        grid_h, grid_w = (d - u) / row, (r - l) / col
+
+        x = np.clip(x, l, r - 1)
+        idx = np.floor((x - l) / grid_w)
+        view.commands["step"].setParameter(idx)
+        view.runCommand("step")
