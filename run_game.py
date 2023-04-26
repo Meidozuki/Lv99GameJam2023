@@ -31,12 +31,10 @@ class GameApp(vbao.App):
         pygame.init()
         self.bind()
         self.viewmodel.runCommand("init")
-        self.viewmodel.runCommand("prepareRender")
-        self.window.initGame()
 
         try:
             self.window.timer.start()
-            self.window.state.wait()
+            self.window.loop()
         except KeyboardInterrupt as e:
             print(e.args)
         finally:
@@ -45,7 +43,7 @@ class GameApp(vbao.App):
                 th.stop()
             pygame.quit()
             print("Window will automatically close after 3s")
-            time.sleep(3)
+            time.sleep(1)
 
 def main():
     app = GameApp()

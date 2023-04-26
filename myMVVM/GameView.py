@@ -9,11 +9,11 @@ import numpy as np
 from functools import wraps
 from easydict import EasyDict
 
-def scalePic(pic, factor):
-    w,h = pic.get_size()
-    target = (int(w*factor), int(h*factor))
-    return pygame.transform.scale(pic, target)
 
+def scalePic(pic, factor):
+    w, h = pic.get_size()
+    target = (int(w * factor), int(h * factor))
+    return pygame.transform.scale(pic, target)
 
 
 class LoopThread:
@@ -50,7 +50,7 @@ class View(vbao.View):
 
         self.running_threads = []
 
-        self.blank_border = (200, 50, 100, 50)
+        self.blank_border = (200, 50, 20, 20)
         self.score_pos = [(500, 50), None]
 
         self.HP_bar_opt = EasyDict({
@@ -79,19 +79,19 @@ class View(vbao.View):
         w, h = self.windowSize
         u, d, l, r = self.blank_border
         return (u, h - d, l, w - r)
+
     @property
     def boardRect(self):
         w, h = self.windowSize
         u, d, l, r = self.blank_border
-        u,d,l,r = (u, h - d, l, w - r)
-        return (l,u),(r-l,d-u)
-
+        u, d, l, r = (u, h - d, l, w - r)
+        return (l, u), (r - l, d - u)
 
     @property
     def playerRect(self):
-        u,d,l,r = self.boardZone
+        u, d, l, r = self.boardZone
         height = 50
-        return l, u-height, r-l, height
+        return l, u - height, r - l, height
 
     def clearScreen(self):
         self.screen.fill(color.black)
@@ -131,16 +131,15 @@ class View(vbao.View):
         self.displayScore(True)
         self.displayTurtle()
 
-    def showMainTitle(self,start_button_zone,end_button_zone):
+    def showMainTitle(self, start_button_zone, end_button_zone):
         # TODO:将Start game和End game文字加到按钮上
 
         self.drawRect(color.grey, start_button_zone)
         self.drawRect(color.grey, end_button_zone)
 
         font = self.getFont(size=12)
-        text = self.getTextFigure(font,"start game")
+        text = self.getTextFigure(font, "start game")
         self.screen.blit(text, start_button_zone)
-
 
     def displayTurtle(self):
         pic = pygame.image.load("local/img/Idle.png")
@@ -164,7 +163,7 @@ class View(vbao.View):
                 rect = [i * wi, 0, wi, h]
                 sub = img.subsurface(rect)
                 idx = self.property.playerPos
-                pos = self.playerRect[0] + idx*offset, self.playerRect[1]
+                pos = self.playerRect[0] + idx * offset, self.playerRect[1]
                 self.drawAndCover(sub, pos)
                 start = time.time()
                 while time.time() - start < 0.1:
@@ -179,8 +178,7 @@ class View(vbao.View):
         pic = scalePic(pic, 3)
         x = int(self.screen.get_size()[0] * 0.4)
         y = self.boardZone[0] - 50
-        self.loadGif(pic, (x,y), 6, 0.2)
-
+        self.loadGif(pic, (x, y), 6, 0.2)
 
     def drawAndCover(self, img, pos):
         rect = pygame.Rect(pos, img.get_size())
@@ -280,7 +278,7 @@ class CommandListener(vbao.CommandListenerBase):
             case "stop":
                 if not success: return
                 print("final score:", self.master.property.score)
-                self.master.upper_notify.onCommandComplete("gameOver",True)
+                self.master.upper_notify.onCommandComplete("gameOver", True)
             case "step":
                 pass
             case _:
