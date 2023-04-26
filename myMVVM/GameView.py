@@ -1,5 +1,5 @@
 import pygame
-from .common import vbao
+from .common import vbao, color
 
 import time
 import threading
@@ -93,11 +93,18 @@ class View(vbao.View):
         height = 50
         return l, u-height, r-l, height
 
+    def clearScreen(self):
+        self.screen.fill(color.black)
+        pygame.display.flip()
+
     def getFont(self, size=12):
         return pygame.font.Font("./local/font/x16y32pxGridGazer.ttf", size)
 
     def getTextFigure(self, font, text, color='0xffffff', *args):
         return font.render(text, True, color, *args)
+
+    def drawRect(self, color, rect):
+        pygame.draw.rect(self.screen, color, rect)
 
     # About display
     def loadGif(self, img, pos, frames=4, interval=0.3):
@@ -119,7 +126,7 @@ class View(vbao.View):
         pygame.display.set_caption(title)
         self.screen = pygame.display.set_mode(size=(800, 600))
 
-        self.playJumpAnim()
+        # self.playJumpAnim()
         self.screen.fill('0x000000')
         self.displayScore(True)
         self.displayTurtle()
