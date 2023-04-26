@@ -131,6 +131,16 @@ class View(vbao.View):
         self.displayScore(True)
         self.displayTurtle()
 
+    def showMainTitle(self,start_button_zone,end_button_zone):
+        # TODO:将Start game和End game文字加到按钮上
+
+        self.drawRect(color.grey, start_button_zone)
+        self.drawRect(color.grey, end_button_zone)
+
+        font = self.getFont(size=12)
+        text = self.getTextFigure(font,"start game")
+        self.screen.blit(text, start_button_zone)
+
 
     def displayTurtle(self):
         pic = pygame.image.load("local/img/Idle.png")
