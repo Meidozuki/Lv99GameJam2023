@@ -77,8 +77,7 @@ class StateAtMenu:
         view = self.window.view
         view.clearScreen()
 
-        self.window.view.drawRect(color.grey, self.start_button_zone)
-        self.window.view.drawRect(color.grey, self.end_button_zone)
+        self.window.view.showMainTitle(self.start_button_zone, self.end_button_zone)
 
         pygame.display.flip()
         while True:
