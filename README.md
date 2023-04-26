@@ -1,11 +1,11 @@
 # Lv99GameJam2023
 
-.  
-├── local  
-│   └── img  
-│       存储美术资源  
-├── myMVVM  
-│   └── 代码存储在这 
+.
+├── local
+│   └── img
+│       存储美术资源
+├── myMVVM
+│   └── 代码存储在这
 
 ## develop with us
 
@@ -16,11 +16,14 @@ git submodule update --init
 ```
 
 Then in conda
+
 ```shell
-conda create -n newenv
-conda activate newenv
+conda create -n NEWENV
+conda activate NEWENV
 pip install -r requirements.txt
 python run-game.py
 ```
 
-## 玩法设计
+## 玩法
+
+棋盘按照区域分割，鼠标响应按照x坐标，从上到下前进
