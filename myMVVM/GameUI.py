@@ -2,6 +2,7 @@ import pygame
 
 import vbao
 from .GameView import View
+from .common import color
 
 import time
 import threading
@@ -17,6 +18,11 @@ class Window:
         self.game_start = True
         self.timer_countdown = 30
         self.timer = threading.Timer(self.timer_countdown, self.interruptGame)
+
+        self.state = None
+
+    def initGame(self):
+        self.state = StateAtMenu(self)
 
     # About game
     def interruptGame(self):
@@ -57,6 +63,31 @@ class GameOverMessage(vbao.CommandListenerBase):
         match cmd_name:
             case "gameOver":
                 self.master.game_start = False
+
+class StateAtMenu:
+    def __init__(self, window_ref):
+        self.window = window_ref
+        w,h = self.window.view.windowSize
+        lu = w*0.4, h*0.5
+        wh = w*0.2, 40
+        self.start_button_zone = pygame.Rect(lu,wh)
+        self.end_button_zone = pygame.Rect(lu[0], lu[1]+wh[1]+10, *wh)
+
+    def wait(self):
+        view = self.window.view
+        view.clearScreen()
+
+        self.window.view.drawRect(color.grey, self.start_button_zone)
+        self.window.view.drawRect(color.grey, self.end_button_zone)
+
+        pygame.display.flip()
+        while True:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    raise KeyboardInterrupt("Game window closed by user.")
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    self.handleMouseClick(event.pos)
+
 
 
 class StateInGame:

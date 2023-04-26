@@ -1,4 +1,5 @@
 import vbao
+from easydict import EasyDict
 
 class ConstValue:
     def __init__(self, value):
@@ -11,3 +12,10 @@ class ConstValue:
         raise AttributeError(f"Trying to change a const value({self._x}) to {value}.")
 
     x = property(getx, setx)
+
+
+color = EasyDict({
+    'grey': '0xC0C0C0',
+    'white': '0xFFFFFF',
+    'black': '0x000000'
+})

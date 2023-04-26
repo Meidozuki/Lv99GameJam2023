@@ -32,10 +32,11 @@ class GameApp(vbao.App):
         self.bind()
         self.viewmodel.runCommand("init")
         self.viewmodel.runCommand("prepareRender")
+        self.window.initGame()
 
         try:
             self.window.timer.start()
-            self.window.startLoop()
+            self.window.state.wait()
         except KeyboardInterrupt as e:
             print(e.args)
         finally:
