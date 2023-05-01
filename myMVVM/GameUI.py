@@ -16,6 +16,8 @@ class Window:
         self.view.upper_notify = GameOverMessage(self)
 
         self.game_start = True
+        self.timer_countdown = 30
+        self.timer = threading.Timer(self.timer_countdown, self.interruptGame)
 
         self.state = None
 
@@ -64,10 +66,10 @@ class StateAtMenu(FSMState):
         super().__init__()
         self.window = window_ref
         w, h = self.window.view.windowSize
-        lu = w * 0.3, h * 0.4
-        wh = w * 0.4, 70
+        lu = w * 0.4, h * 0.5
+        wh = w * 0.2, 40
         self.start_button_zone = pygame.Rect(lu, wh)
-        self.end_button_zone = pygame.Rect(lu[0], lu[1] + wh[1] + 20, *wh)
+        self.end_button_zone = pygame.Rect(lu[0], lu[1] + wh[1] + 10, *wh)
 
     def wait(self):
         view = self.window.view
@@ -107,30 +109,17 @@ class StateInGame(FSMState):
         self.window.view.property["HP"] = max_hp
         self.window.view.property["maxHP"] = max_hp
 
-        self.timer_countdown = 5
-        self.timer = threading.Timer(self.timer_countdown, self.stop)
-
     def wait(self):
-        try:
-            self.timer.start()
-            self.startGame()
-        finally:
-            self.timer.cancel()
+        self.startGame()
         return self.next_state
-
-    def stop(self):
-        self.running = False
-        self.next_state = StateScored
-
 
     def startGame(self):
         view = self.window.view
         view.runCommand("prepareRender")
-        view.handlePlayerPos()
         start = time.time()
 
         while self.running:
-            view.displayTime(start, self.timer_countdown)
+            view.displayTime(start, self.window.timer_countdown)
             view.displayPlayerStatus()
             if view.property.HP <= 0:
                 self.stop()
@@ -156,19 +145,3 @@ class StateInGame(FSMState):
         idx = np.floor((x - l) / grid_w)
         view.commands["step"].setParameter(idx)
         view.runCommand("step")
-
-class StateScored(FSMState):
-    def __init__(self, window_ref):
-        super().__init__()
-
-
-    def wait(self):
-
-
-        pygame.display.flip()
-        while self.running:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    self.stop()
-
-        return self.next_state

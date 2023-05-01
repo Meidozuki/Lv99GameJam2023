@@ -1,8 +1,9 @@
 import pygame
 from .common import vbao, color
 
-import time, math, logging
+import time
 import threading
+import logging
 import itertools
 import numpy as np
 from functools import wraps
@@ -13,11 +14,6 @@ def scalePic(pic, factor):
     w, h = pic.get_size()
     target = (int(w * factor), int(h * factor))
     return pygame.transform.scale(pic, target)
-
-
-def getPosAlignedByCenter(ref: pygame.Rect, img: pygame.Surface):
-    w, h = img.get_size()
-    return ref.centerx - w / 2, ref.centery - h / 2
 
 
 class LoopThread:
@@ -38,6 +34,7 @@ class LoopThread:
 
     def stop(self):
         self.running = False
+        self.thread.join()
 
 
 class View(vbao.View):
@@ -100,29 +97,14 @@ class View(vbao.View):
         self.screen.fill(color.black)
         pygame.display.flip()
 
-    def stop(self):
-        for th in self.running_threads:
-            th.stop()
-
-    def getFont(self, font=None, size=12):
-        if font is not None:
-            assert isinstance(font, str)
-
-        match font:
-            case "arcade":
-                path = "./local/font/ARCADECLASSIC.ttf"
-            case None:
-                path = "./local/font/x16y32pxGridGazer.ttf"
-            case _:
-                raise ValueError(f"cannot find font {font}")
-
-        return pygame.font.Font(path, size)
+    def getFont(self, size=12):
+        return pygame.font.Font("./local/font/x16y32pxGridGazer.ttf", size)
 
     def getTextFigure(self, font, text, color='0xffffff', *args):
         return font.render(text, True, color, *args)
 
-    def drawRect(self, color, rect, **args):
-        pygame.draw.rect(self.screen, color, rect, **args)
+    def drawRect(self, color, rect):
+        pygame.draw.rect(self.screen, color, rect)
 
     # About display
     def loadGif(self, img, pos, frames=4, interval=0.3):
@@ -150,17 +132,14 @@ class View(vbao.View):
         self.displayTurtle()
 
     def showMainTitle(self, start_button_zone, end_button_zone):
-        blue = [0, 0, 100]
-        self.drawRect(blue, start_button_zone)
-        self.drawRect(color.grey, start_button_zone, width=3)
-        self.drawRect(blue, end_button_zone)
-        self.drawRect(color.grey, end_button_zone, width=3)
+        # TODO:将Start game和End game文字加到按钮上
 
-        font = self.getFont("arcade", size=round(start_button_zone.width * 0.16))
+        self.drawRect(color.grey, start_button_zone)
+        self.drawRect(color.grey, end_button_zone)
+
+        font = self.getFont(size=12)
         text = self.getTextFigure(font, "start game")
-        self.screen.blit(text, getPosAlignedByCenter(start_button_zone, text))
-        text = self.getTextFigure(font, "quit game")
-        self.screen.blit(text, getPosAlignedByCenter(end_button_zone, text))
+        self.screen.blit(text, start_button_zone)
 
     def displayTurtle(self):
         pic = pygame.image.load("local/img/Idle.png")
@@ -208,7 +187,7 @@ class View(vbao.View):
         pygame.display.update(rect)
 
     def displayScore(self, first=False):
-        font = self.getFont(size=30)
+        font = self.getFont(30)
         if first:
             text = self.getTextFigure(font, "Score: ")
             pos0 = self.score_pos[0]
@@ -221,7 +200,7 @@ class View(vbao.View):
         self.drawAndCover(text, self.score_pos[1])
 
     def displayTime(self, start, countdown):
-        font = self.getFont(size=20)
+        font = self.getFont(20)
         time_ = time.time()
         text = self.getTextFigure(font, "{:.2f}".format(countdown - (time_ - start)))
         self.drawAndCover(text, (200, 50))
@@ -292,6 +271,7 @@ class CommandListener(vbao.CommandListenerBase):
             case "init":
                 if not success: raise RuntimeError
                 self.master.initWindow()
+                self.master.handlePlayerPos()
             case "prepareRender":
                 if not success: return
                 self.master.handleBoardRender()
