@@ -6,4 +6,3 @@ from .GameUI import Window
 from .Viewmodel import GameViewModel
 
 from .Viewmodel import VMRenderCommand
-

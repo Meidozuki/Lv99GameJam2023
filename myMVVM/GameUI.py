@@ -4,9 +4,9 @@ import vbao
 from .GameView import View
 from .common import color
 
-import time
+import asyncio
 import threading
-import logging
+import time, logging
 import numpy as np
 
 
@@ -15,22 +15,10 @@ class Window:
         self.view = View()
         self.view.upper_notify = GameOverMessage(self)
 
-        self.game_start = True
-        self.timer_countdown = 30
-        self.timer = threading.Timer(self.timer_countdown, self.interruptGame)
-
         self.state = None
 
     def quitGame(self):
-        self.game_start = False
         self.view.clearScreen()
-
-    # About game
-    def interruptGame(self):
-        self.view.runCommand("stop")
-        # wait result
-        # ...
-        self.game_start = False
 
     def loop(self):
         state_info = StateAtMenu
@@ -52,7 +40,7 @@ class FSMState:
         self.running = True
         self.next_state = None
 
-    def stop(self):
+    def finishState(self):
         self.running = False
         self.next_state = StateClosed
 
@@ -66,10 +54,18 @@ class StateAtMenu(FSMState):
         super().__init__()
         self.window = window_ref
         w, h = self.window.view.windowSize
-        lu = w * 0.4, h * 0.5
-        wh = w * 0.2, 40
+        lu = w * 0.3, h * 0.4
+        wh = w * 0.4, 70
         self.start_button_zone = pygame.Rect(lu, wh)
-        self.end_button_zone = pygame.Rect(lu[0], lu[1] + wh[1] + 10, *wh)
+        self.end_button_zone = pygame.Rect(lu[0], lu[1] + wh[1] + 20, *wh)
+
+    async def idle(self):
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                self.finishState()
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                self.handleMouseClick(event.pos)
+        await asyncio.sleep(0.05)
 
     def wait(self):
         view = self.window.view
@@ -79,11 +75,8 @@ class StateAtMenu(FSMState):
 
         pygame.display.flip()
         while self.running:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    self.stop()
-                elif event.type == pygame.MOUSEBUTTONDOWN:
-                    self.handleMouseClick(event.pos)
+            task = view.loop.create_task(self.idle())
+            view.loop.run_until_complete(task)
 
         return self.next_state
 
@@ -93,11 +86,11 @@ class StateAtMenu(FSMState):
         end = self.end_button_zone
         if start.x < x < start.x + start.width \
                 and start.y < y < start.y + start.height:
-            self.stop()
+            self.finishState()
             self.next_state = StateInGame
         elif end.x < x < end.x + end.width \
                 and end.y < y < end.y + end.height:
-            self.stop()
+            self.finishState()
 
 
 class StateInGame(FSMState):
@@ -109,39 +102,72 @@ class StateInGame(FSMState):
         self.window.view.property["HP"] = max_hp
         self.window.view.property["maxHP"] = max_hp
 
+        self.timer_countdown = 10
+        self.timer = threading.Timer(self.timer_countdown, self.finishState)
+
     def wait(self):
-        self.startGame()
+        view = self.window.view
+        view.displayScore(first=True)
+        view.displayTurtle()
+        try:
+            self.timer.start()
+            t = view.loop.create_task(self.startGame())
+            view.loop.run_until_complete(t)
+        finally:
+            self.timer.cancel()
         return self.next_state
 
-    def startGame(self):
+    def finishState(self):
+        self.running = False
+        self.next_state = StateScored
+
+    async def startGame(self):
         view = self.window.view
         view.runCommand("prepareRender")
+        view.handlePlayerPos()
         start = time.time()
 
         while self.running:
-            view.displayTime(start, self.window.timer_countdown)
+            view.displayTime(start, self.timer_countdown)
             view.displayPlayerStatus()
             if view.property.HP <= 0:
-                self.stop()
+                self.finishState()
                 break
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
-                    self.stop()
+                    self.finishState()
                 elif event.type == pygame.MOUSEBUTTONDOWN:
                     self.handleMouseClick(event.pos)
 
+            await asyncio.sleep(0.05)
             pygame.display.flip()
-
 
     def handleMouseClick(self, click_pos):
         view = self.window.view
         x, y = click_pos
-        u, d, l, r = view.boardZone
+        l, u, w, h = view.boardRect
         row, col = view.property.row.x, view.property.col.x
-        grid_h, grid_w = (d - u) / row, (r - l) / col
+        grid_h, grid_w = h / row, w / col
 
-        x = np.clip(x, l, r - 1)
+        x = np.clip(x, l, l + w - 1)
         idx = np.floor((x - l) / grid_w)
         view.commands["step"].setParameter(idx)
         view.runCommand("step")
+
+class StateScored(FSMState):
+    def __init__(self, window_ref):
+        super().__init__()
+        self.window = window_ref
+
+    def wait(self):
+        self.window.view.showScore()
+
+        pygame.display.flip()
+        time.sleep(0.5) #防止点击过头
+        while self.running:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT or event.type == pygame.MOUSEBUTTONDOWN:
+                    self.finishState()
+
+        return self.next_state

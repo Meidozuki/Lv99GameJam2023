@@ -1,9 +1,9 @@
 import pygame
 from .common import vbao, color
 
-import time
-import threading
-import logging
+import asyncio
+from asyncio import CancelledError
+import time, logging
 import itertools
 import numpy as np
 from functools import wraps
@@ -16,25 +16,20 @@ def scalePic(pic, factor):
     return pygame.transform.scale(pic, target)
 
 
-class LoopThread:
-    @wraps(threading.Thread.__init__)
-    def __init__(self, target, args=None, **kwargs):
-        if args is None:
-            args = []
+def getPosAlignedByCenter(ref: pygame.Rect, img: pygame.Surface):
+    w, h = img.get_size()
+    return ref.centerx - w / 2, ref.centery - h / 2
 
-        def f():
-            while self.running:
-                target(*args, **kwargs)
 
-        self.thread = threading.Thread(target=f)
-        self.running = True
+def cancellableCoroutine(func):
+    @wraps(func)
+    async def inner(*args, **kwargs):
+        try:
+            func(*args, **kwargs)
+        except CancelledError:
+            print(func.__name__, "cancelled")
 
-    def start(self):
-        self.thread.start()
-
-    def stop(self):
-        self.running = False
-        self.thread.join()
+    return inner
 
 
 class View(vbao.View):
@@ -45,10 +40,10 @@ class View(vbao.View):
         self.upper_notify = None
 
         self.buffer = None
-        self.buffer_lock = threading.Lock()
-        self.player_pos_lock = threading.Lock()
+        self.buffer_lock = asyncio.Lock()
 
-        self.running_threads = []
+        self.loop = asyncio.get_event_loop()
+        self.running_tasks = []
 
         self.blank_border = (200, 50, 20, 20)
         self.score_pos = [(500, 50), None]
@@ -72,39 +67,52 @@ class View(vbao.View):
         return pygame.display.get_surface().get_size()
 
     @property
-    def boardZone(self):
-        """
-        :return: area box for board (up, down, left,right)
-        """
-        w, h = self.windowSize
-        u, d, l, r = self.blank_border
-        return (u, h - d, l, w - r)
-
-    @property
     def boardRect(self):
         w, h = self.windowSize
         u, d, l, r = self.blank_border
         u, d, l, r = (u, h - d, l, w - r)
-        return (l, u), (r - l, d - u)
+        return l, u, r - l, d - u
 
     @property
     def playerRect(self):
-        u, d, l, r = self.boardZone
+        l, u, w, _ = self.boardRect
         height = 50
-        return l, u - height, r - l, height
+        return l, u - height, w, height
+
+    def cancelTasks(self):
+        for task in self.running_tasks:
+            task.cancel()
+            self.loop.run_until_complete(task)
+        self.running_tasks.clear()
 
     def clearScreen(self):
         self.screen.fill(color.black)
         pygame.display.flip()
 
-    def getFont(self, size=12):
-        return pygame.font.Font("./local/font/x16y32pxGridGazer.ttf", size)
+    def initWindow(self, title="Hello World"):
+        pygame.display.set_caption(title)
+        self.screen = pygame.display.set_mode(size=(800, 600))
+        self.screen.fill('0x000000')
+
+    def getFont(self, font=None, size=12):
+        if font is not None:
+            assert isinstance(font, str)
+
+        match font:
+            case "arcade":
+                path = "./local/font/ARCADECLASSIC.ttf"
+            case None:
+                path = "./local/font/x16y32pxGridGazer.ttf"
+            case _:
+                raise ValueError(f"cannot find font {font}")
+
+        return pygame.font.Font(path, size)
 
     def getTextFigure(self, font, text, color='0xffffff', *args):
         return font.render(text, True, color, *args)
 
-    def drawRect(self, color, rect):
-        pygame.draw.rect(self.screen, color, rect)
+    def drawRect(self, color, rect, **args):
+        pygame.draw.rect(self.screen, color, rect, **args)
 
     # About display
     def loadGif(self, img, pos, frames=4, interval=0.3):
@@ -118,35 +126,49 @@ class View(vbao.View):
             rect = [i * wi, 0, wi, h]
             sub = img.subsurface(rect)
             self.drawAndCover(sub, pos())
-            start = time.time()
-            while time.time() - start < interval:
-                pass
+            time.sleep(interval)
 
-    def initWindow(self, title="Hello World"):
-        pygame.display.set_caption(title)
-        self.screen = pygame.display.set_mode(size=(800, 600))
+    async def loadGif_a(self, img, pos, frames=4, interval=0.3, endless_loop=True):
+        if not callable(pos):
+            p = pos
+            pos = lambda: p
+        w, h = img.get_size()
+        wi = w // frames
 
-        # self.playJumpAnim()
-        self.screen.fill('0x000000')
-        self.displayScore(True)
-        self.displayTurtle()
+        while endless_loop:
+            for i in range(frames):
+                rect = [i * wi, 0, wi, h]
+                sub = img.subsurface(rect)
+                self.drawAndCover(sub, pos())
+                await asyncio.sleep(interval)
 
     def showMainTitle(self, start_button_zone, end_button_zone):
-        # TODO:将Start game和End game文字加到按钮上
+        self.displayTurtle()
 
-        self.drawRect(color.grey, start_button_zone)
-        self.drawRect(color.grey, end_button_zone)
+        blue = [0, 0, 100]
+        self.drawRect(blue, start_button_zone)
+        self.drawRect(color.grey, start_button_zone, width=3)
+        self.drawRect(blue, end_button_zone)
+        self.drawRect(color.grey, end_button_zone, width=3)
 
-        font = self.getFont(size=12)
+        font = self.getFont("arcade", size=round(start_button_zone.width * 0.16))
         text = self.getTextFigure(font, "start game")
-        self.screen.blit(text, start_button_zone)
+        self.screen.blit(text, getPosAlignedByCenter(start_button_zone, text))
+        text = self.getTextFigure(font, "quit game")
+        self.screen.blit(text, getPosAlignedByCenter(end_button_zone, text))
+
+    def showScore(self):
+        score = self.property.score
+        self.drawRect('0x777777',[200,200,200,200])
+        font = self.getFont()
+        text = self.getTextFigure(font,f'score={score}')
+        self.screen.blit(text,[300,300])
 
     def displayTurtle(self):
         pic = pygame.image.load("local/img/Idle.png")
         pic = scalePic(pic, 2)
-        thread = LoopThread(target=self.loadGif, args=[pic, (100, 70)])
-        thread.start()
-        self.running_threads.append(thread)
+        task = self.loop.create_task(self.loadGif_a(pic, (100, 70)))
+        self.running_tasks.append(task)
 
     def handlePlayerPos(self):
         img = pygame.image.load("local/img/Swim.png")
@@ -154,30 +176,27 @@ class View(vbao.View):
 
         w, h = img.get_size()
         wi = w // frames
-        _, (width, _) = self.boardRect
-        offset = width // self.property.col.x
+        offset = self.boardRect[2] // self.property.col.x
 
-        def frame():
-            for i in range(frames):
-                self.screen.fill('0x000000', self.playerRect)
-                rect = [i * wi, 0, wi, h]
-                sub = img.subsurface(rect)
-                idx = self.property.playerPos
-                pos = self.playerRect[0] + idx * offset, self.playerRect[1]
-                self.drawAndCover(sub, pos)
-                start = time.time()
-                while time.time() - start < 0.1:
-                    pass
+        async def frame():
+            while True:
+                for i in range(frames):
+                    self.screen.fill('0x000000', self.playerRect)
+                    rect = [i * wi, 0, wi, h]
+                    sub = img.subsurface(rect)
+                    idx = self.property.playerPos
+                    pos = self.playerRect[0] + idx * offset, self.playerRect[1]
+                    self.drawAndCover(sub, pos)
+                    await asyncio.sleep(0.1)
 
-        thread = LoopThread(target=frame)
-        thread.start()
-        self.running_threads.append(thread)
+        task = self.loop.create_task(frame())
+        self.running_tasks.append(task)
 
     def playJumpAnim(self):
         pic = pygame.image.load("local/img/Jump.png")
         pic = scalePic(pic, 3)
         x = int(self.screen.get_size()[0] * 0.4)
-        y = self.boardZone[0] - 50
+        y = self.boardRect[0] - 50
         self.loadGif(pic, (x, y), 6, 0.2)
 
     def drawAndCover(self, img, pos):
@@ -187,7 +206,7 @@ class View(vbao.View):
         pygame.display.update(rect)
 
     def displayScore(self, first=False):
-        font = self.getFont(30)
+        font = self.getFont(size=30)
         if first:
             text = self.getTextFigure(font, "Score: ")
             pos0 = self.score_pos[0]
@@ -200,7 +219,7 @@ class View(vbao.View):
         self.drawAndCover(text, self.score_pos[1])
 
     def displayTime(self, start, countdown):
-        font = self.getFont(20)
+        font = self.getFont(size=20)
         time_ = time.time()
         text = self.getTextFigure(font, "{:.2f}".format(countdown - (time_ - start)))
         self.drawAndCover(text, (200, 50))
@@ -223,11 +242,10 @@ class View(vbao.View):
 
     def splitBoardColumn(self, grid_w, border_w=5):
         # 划分泳道：在前4条泳道的右边缘，绘制分割线
-        u, d, l, r = self.boardZone
+        l, u, w, h = self.boardRect
         left_upper = np.array([l, u])
         # pygame.draw.aaline(self.screen,...)
-        border_h, border_w = (d - u), border_w  # 分割线矩形的高宽
-        border_size = np.array([border_w, border_h])  # 分割线矩形的尺寸
+        border_size = np.array([border_w, h])  # 分割线矩形的尺寸
         border_color = '0x00BFFF'  # 分割线的颜色
         for i in range(1, 5):
             delta_x = grid_w * i  # 横坐标偏移量
@@ -236,12 +254,12 @@ class View(vbao.View):
             pygame.draw.rect(self.screen, border_color, border_rect)
 
     def handleBoardRender(self):
-        with self.buffer_lock:
-            data = self.buffer
+        # with self.buffer_lock:
+        data = self.buffer
 
         row, col = data.shape
-        u, d, l, r = self.boardZone
-        grid_h, grid_w = (d - u) / row, (r - l) / col
+        l, u, w, h = self.boardRect
+        grid_h, grid_w = h / row, w / col
         grid_size = np.array([grid_w, grid_h])
         left_upper = np.array([l, u])
 
@@ -271,8 +289,7 @@ class CommandListener(vbao.CommandListenerBase):
             case "init":
                 if not success: raise RuntimeError
                 self.master.initWindow()
-                self.master.handlePlayerPos()
-            case "prepareRender":
+            case "renderBuffer":
                 if not success: return
                 self.master.handleBoardRender()
             case "stop":
@@ -293,6 +310,7 @@ class PropertyListener(vbao.PropertyListenerBase):
         logging.info(f"View receive property notif {prop_name}")
         match prop_name:
             case "score":
+                # 更新score耗时少，将主线程用于更新棋盘
                 self.master.displayScore()
             case "playerPos":
                 pass

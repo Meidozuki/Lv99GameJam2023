@@ -15,18 +15,25 @@ class GameMainLogic(vbao.Model):
         super().__init__()
 
         self.possible_grid_types = (0,2)
+        self.reset()
 
+    # 用来初始化，或者注销标记gc
+    def reset(self):
+        self.combo = 0
+        self.score = 0
+        self.row = None
+        self.col = None
+        self.board = None
 
     # Game logic
     def generate(self, shape):
         x = np.random.randint(*self.possible_grid_types, shape)
-        b = np.all(x != 0, axis=1)
-        while np.any(b):
-            idx = np.nonzero(b)[0]
+        dead = np.all(x != 0, axis=1)
+        while np.any(dead):
+            idx = np.nonzero(dead)[0]
             x[idx] = np.random.randint(*self.possible_grid_types, (idx.shape[0], shape[1]))
-            b = np.all(x != 0, axis=1)
+            dead = np.all(x != 0, axis=1)
         return x
-
 
     def gameInit(self):
         self.combo = 0
@@ -42,18 +49,18 @@ class GameMainLogic(vbao.Model):
             self.combo = 0
             self.property["HP"] -= 1
             self.triggerPropertyNotifications("HP")
+            if self.property["HP"] <= 0:
+                return
         self.updateScore()
 
         self.board[:-1] = self.board[1:]
         self.board[-1] = self.generate([1, self.col])
 
-        # 更新score耗时少，直接新开线程，将主线程用于更新棋盘
-        score_thread = threading.Thread(target=self.calScore)
-        score_thread.start()
+        # 更新score耗时少，将主线程用于更新棋盘
+        self.calScore()
 
         self.triggerPropertyNotifications("board")
 
-        score_thread.join()
         if verbose:
             self.printScore()
 
@@ -72,7 +79,8 @@ class GameMainLogic(vbao.Model):
         print(f"score = {self.score}, combo = {self.combo}")
 
     def gameOver(self):
-        return self.calScore()
+        self.calScore()
+        self.reset()
 
     # For data exchanging
     def ctx(self):
