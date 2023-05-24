@@ -106,11 +106,13 @@ class StateInGame(FSMState):
         self.timer = threading.Timer(self.timer_countdown, self.finishState)
 
     def wait(self):
-        self.window.view.displayScore(first=True)
-        self.window.view.displayTurtle()
+        view = self.window.view
+        view.displayScore(first=True)
+        view.displayTurtle()
         try:
             self.timer.start()
-            self.startGame()
+            t = view.loop.create_task(self.startGame())
+            view.loop.run_until_complete(t)
         finally:
             self.timer.cancel()
         return self.next_state
@@ -119,7 +121,7 @@ class StateInGame(FSMState):
         self.running = False
         self.next_state = StateScored
 
-    def startGame(self):
+    async def startGame(self):
         view = self.window.view
         view.runCommand("prepareRender")
         view.handlePlayerPos()
@@ -138,8 +140,8 @@ class StateInGame(FSMState):
                 elif event.type == pygame.MOUSEBUTTONDOWN:
                     self.handleMouseClick(event.pos)
 
+            await asyncio.sleep(0.05)
             pygame.display.flip()
-
 
     def handleMouseClick(self, click_pos):
         view = self.window.view
@@ -162,6 +164,7 @@ class StateScored(FSMState):
         self.window.view.showScore()
 
         pygame.display.flip()
+        time.sleep(0.5) #防止点击过头
         while self.running:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT or event.type == pygame.MOUSEBUTTONDOWN:

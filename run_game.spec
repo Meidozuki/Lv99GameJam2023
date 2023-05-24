@@ -7,7 +7,7 @@ block_cipher = None
 
 a = Analysis(
     ['run_game.py'],
-    pathex=[r'D:\jupyter\GameJam2023\VBAO\Lib_VBao\python'],
+    pathex=[r'D:\coding\GameJam2023\VBAO\Lib_VBao\python'],
     binaries=[],
     datas=[('local/font/x16y32pxGridGazer.ttf','local/font/')] + \
         [(png, 'local/img') for png in glob("local/img/*.png")]

@@ -179,14 +179,15 @@ class View(vbao.View):
         offset = self.boardRect[2] // self.property.col.x
 
         async def frame():
-            for i in range(frames):
-                self.screen.fill('0x000000', self.playerRect)
-                rect = [i * wi, 0, wi, h]
-                sub = img.subsurface(rect)
-                idx = self.property.playerPos
-                pos = self.playerRect[0] + idx * offset, self.playerRect[1]
-                self.drawAndCover(sub, pos)
-                await asyncio.sleep(0.1)
+            while True:
+                for i in range(frames):
+                    self.screen.fill('0x000000', self.playerRect)
+                    rect = [i * wi, 0, wi, h]
+                    sub = img.subsurface(rect)
+                    idx = self.property.playerPos
+                    pos = self.playerRect[0] + idx * offset, self.playerRect[1]
+                    self.drawAndCover(sub, pos)
+                    await asyncio.sleep(0.1)
 
         task = self.loop.create_task(frame())
         self.running_tasks.append(task)
