@@ -19,3 +19,5 @@ color = EasyDict({
     'white': '0xFFFFFF',
     'black': '0x000000'
 })
+
+game_setting = {}

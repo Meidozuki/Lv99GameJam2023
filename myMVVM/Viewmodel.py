@@ -1,5 +1,5 @@
 from .common import vbao
-from .common import ConstValue
+# from .common import ConstValue
 
 import logging
 
@@ -9,23 +9,21 @@ class GameViewModel(vbao.ViewModel):
         super().__init__()
         self.listener = VMPropertyListener(self)
 
-        self.property["row"] = ConstValue(row)
-        self.property["col"] = ConstValue(col)
         self.property["score"] = 0
-        self.property["playerPos"] = 0
+        self.property["pawn"] = None
 
         self.commands["prepareRender"] = ValueError("Not set yet")
         self.commands["init"] = VMInitCommand(self)
-        self.commands["step"] = VMGameStepCommand(self)
         self.commands["stop"] = VMGameStopCommand(self)
 
-    def getBoard(self):
-        return self.model.ctx()
 
     def stepOnGrid(self, idx):
         self.property["playerPos"] = idx
         self.triggerPropertyNotifications("playerPos")
         self.model.stepOnGrid(idx)
+
+    def renderable(self):
+        return self.model.enemies + [self.model.player]
 
 
 class VMPropertyListener(vbao.PropertyListenerBase):
@@ -35,8 +33,6 @@ class VMPropertyListener(vbao.PropertyListenerBase):
     def onPropertyChanged(self, prop_name: str):
         logging.info(f"Viewmodel receive property notif {prop_name}")
         match prop_name:
-            case "board":
-                self.master.runCommand("prepareRender")
             case "score":
                 self.master.triggerPropertyNotifications("score")
             case "HP":
@@ -55,9 +51,7 @@ class VMRenderCommand(vbao.CommandBase):
         self._view = view_ref
 
     def execute(self):
-        # with self._view.buffer_lock:
-        self._view.buffer = self._viewmodel.getBoard().x
-        self._viewmodel.triggerCommandNotifications("renderBuffer", True)
+        self._viewmodel.property.pawn = self._viewmodel.renderable()
 
 
 class VMCommand_with_self(vbao.CommandBase):
@@ -67,24 +61,8 @@ class VMCommand_with_self(vbao.CommandBase):
 
 class VMInitCommand(VMCommand_with_self):
     def execute(self):
-        self._viewmodel.model.gameInit()
+        self._viewmodel.model.initGame()
         self._viewmodel.triggerCommandNotifications("init", True)
-
-
-class VMGameStepCommand(VMCommand_with_self):
-    def __init__(self, viewmodel_ref):
-        super().__init__(viewmodel_ref)
-        self.idx = None
-
-    def setParameter(self, idx):
-        self.idx = int(idx)
-
-    def execute(self):
-        if self.idx is None:
-            raise ValueError("The idx is not set before step")
-
-        self._viewmodel.stepOnGrid(self.idx)
-        self._viewmodel.triggerCommandNotifications("step", True)
 
 
 class VMGameStopCommand(VMCommand_with_self):
