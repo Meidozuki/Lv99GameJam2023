@@ -107,8 +107,12 @@ class StateInGame(FSMState):
 
     def wait(self):
         view = self.window.view
+        view.clearScreen()
+
         view.displayScore(first=True)
         view.displayTurtle()
+        view.displayPawns()
+
         try:
             self.timer.start()
             t = view.loop.create_task(self.startGame())
@@ -123,8 +127,7 @@ class StateInGame(FSMState):
 
     async def startGame(self):
         view = self.window.view
-        view.runCommand("prepareRender")
-        view.handlePlayerPos()
+        view.property.player_pos = np.array(view.windowSize)/2
         start = time.time()
 
         while self.running:
@@ -137,23 +140,9 @@ class StateInGame(FSMState):
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self.finishState()
-                elif event.type == pygame.MOUSEBUTTONDOWN:
-                    self.handleMouseClick(event.pos)
 
             await asyncio.sleep(0.05)
             pygame.display.flip()
-
-    def handleMouseClick(self, click_pos):
-        view = self.window.view
-        x, y = click_pos
-        l, u, w, h = view.boardRect
-        row, col = view.property.row.x, view.property.col.x
-        grid_h, grid_w = h / row, w / col
-
-        x = np.clip(x, l, l + w - 1)
-        idx = np.floor((x - l) / grid_w)
-        view.commands["step"].setParameter(idx)
-        view.runCommand("step")
 
 class StateScored(FSMState):
     def __init__(self, window_ref):
