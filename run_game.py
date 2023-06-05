@@ -19,7 +19,7 @@ class GameApp(vbao.App):
         vbao.use_easydict()
 
         self.model = GameMainLogic()
-        self.viewmodel = GameViewModel(7, 5)
+        self.viewmodel = GameViewModel()
         self.window = Window()
 
     def bind(self, *args):

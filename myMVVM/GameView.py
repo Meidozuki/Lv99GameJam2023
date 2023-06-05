@@ -58,9 +58,6 @@ class View(vbao.View):
         self.cmd_listener = CommandListener(self)
         self.upper_notify = None
 
-        self.buffer = None
-        self.buffer_lock = asyncio.Lock()
-
         self.loop = asyncio.get_event_loop()
         self.running_tasks = []
 
@@ -86,12 +83,6 @@ class View(vbao.View):
         :return: window size (width, height)
         """
         return pygame.display.get_surface().get_size()
-
-    @property
-    def playerRect(self):
-        l, u, w, _ = self.boardRect
-        height = 50
-        return l, u - height, w, height
 
     # 屏幕相关
     def clearScreen(self):
@@ -175,6 +166,11 @@ class View(vbao.View):
         self.pushTask(self.loadGif_a(pic, (100, 70)))
 
     async def updatePawn(self, pawn, sleep_time=0.1):
+        def resizePos(x,y):
+            nx = x * self.windowSize[0]
+            ny = (0.2 + y*0.8) * self.windowSize[1]
+            return nx,ny
+
         while True:
             # Shark会更改image，需要放在循环中
             frames, img = pawn.getImage()
@@ -188,20 +184,24 @@ class View(vbao.View):
                     return
 
                 x, y = pawn.position
-                new_pos = x * self.windowSize[0], y * self.windowSize[1]
+                new_pos = resizePos(x,y)
                 sub = img.subsurface([i * wi, 0, wi, h])
                 self.drawAndCover(sub, new_pos)
                 await asyncio.sleep(sleep_time)
 
                 # 覆盖当前位置，避免重影
-                rect = pygame.Rect(new_pos, img.get_size())
+                rect = pygame.Rect(new_pos, (wi,h))
                 self.screen.fill('0x000000', rect)
 
     def displayPawns(self):
-        self.runCommand("prepareRender")
+        if not self.property.buffer.empty():
+            queue = self.property.buffer
+            player_pos_ = lambda: np.array(self.property.player_pos) / np.array(self.windowSize)
 
-        for item in self.property.pawn:
-            self.pushTask(self.updatePawn(item))
+            while not queue.empty():
+                pawn = queue.get()
+                self.pushTask(self.updatePawn(pawn))
+                self.pushTask(pawn.tickLogic(player_pos_, 0.1))
 
     def playJumpAnim(self):
         pic = pygame.image.load("local/img/Jump.png")
@@ -262,14 +262,11 @@ class CommandListener(vbao.CommandListenerBase):
             case "init":
                 if not success: raise RuntimeError
                 self.master.initWindow()
-            case "renderBuffer":
-                if not success: return
-                # self.master.handleBoardRender()
             case "stop":
                 if not success: return
                 print("final score:", self.master.property.score)
                 self.master.upper_notify.onCommandComplete("gameOver", True)
-            case "step":
+            case "initGame":
                 pass
             case _:
                 logging.warning(f"uncaught cmd {cmd_name}")
@@ -283,7 +280,6 @@ class PropertyListener(vbao.PropertyListenerBase):
         logging.info(f"View receive property notif {prop_name}")
         match prop_name:
             case "score":
-                # 更新score耗时少，将主线程用于更新棋盘
                 self.master.displayScore()
             case "playerPos":
                 pass

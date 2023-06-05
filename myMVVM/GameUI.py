@@ -35,6 +35,7 @@ class GameOverMessage(vbao.CommandListenerBase):
             case "gameOver":
                 self.master.game_start = False
 
+
 class FSMState:
     def __init__(self):
         self.running = True
@@ -43,6 +44,7 @@ class FSMState:
     def finishState(self):
         self.running = False
         self.next_state = StateClosed
+
 
 class StateClosed(FSMState):
     def __init__(self, window_ref):
@@ -109,6 +111,8 @@ class StateInGame(FSMState):
         view = self.window.view
         view.clearScreen()
 
+        view.runCommand("initGame")
+
         view.displayScore(first=True)
         view.displayTurtle()
         view.displayPawns()
@@ -127,7 +131,7 @@ class StateInGame(FSMState):
 
     async def startGame(self):
         view = self.window.view
-        view.property.player_pos = np.array(view.windowSize)/2
+        view.property.player_pos = np.array(view.windowSize) / 2
         start = time.time()
 
         while self.running:
@@ -144,6 +148,7 @@ class StateInGame(FSMState):
             await asyncio.sleep(0.05)
             pygame.display.flip()
 
+
 class StateScored(FSMState):
     def __init__(self, window_ref):
         super().__init__()
@@ -153,7 +158,7 @@ class StateScored(FSMState):
         self.window.view.showScore()
 
         pygame.display.flip()
-        time.sleep(0.5) #防止点击过头
+        time.sleep(0.5)  # 防止点击过头
         while self.running:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT or event.type == pygame.MOUSEBUTTONDOWN:
