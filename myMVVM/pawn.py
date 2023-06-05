@@ -1,3 +1,5 @@
+import asyncio
+
 import numpy as np
 import pygame
 import time
@@ -29,11 +31,11 @@ class Actor(abc.ABC):
     def getImage(self):
         img = pygame.image.load(self.img_path)
         if self.scale != 1:
-            img = scalePic(img,self.scale)
+            img = scalePic(img, self.scale)
         return (self.frames, img)
 
 
-class Player(Collidable,Actor):
+class Player(Collidable, Actor):
     def __init__(self):
         super().__init__()
         self.position = (0.5, 0.5)
@@ -43,11 +45,14 @@ class Player(Collidable,Actor):
         self.img_path = "local/img/Swim.png"
         self.frames = 6
 
+    async def tickLogic(self, interval, pos_fn):
+        pass
+
     def __str__(self):
         return f"Player {self.position}"
 
 
-class Enemy(Collidable,Actor):
+class Enemy(Collidable, Actor):
     def __init__(self):
         self.lock = False
         super().__init__()
@@ -55,6 +60,8 @@ class Enemy(Collidable,Actor):
         self.velocity = None
         self.route_x0 = None
         self.route_t0 = None
+        self.velocity_factor = 0.15
+        self.tick_interval = 0.05
 
     def init(self):
         d = {0: ((0, 0.1), (0, 1)),
@@ -73,10 +80,19 @@ class Enemy(Collidable,Actor):
 
         self.wait_seconds = np.random.randint(1, 4)
 
+    async def tickLogic(self, pos_fn, interval=None):
+        await asyncio.sleep(self.wait_seconds)
+        self.lockOn(pos_fn())
+        if interval is None:
+            interval = self.tick_interval
+        while self.valid:
+            self.update()
+            await asyncio.sleep(interval)
+
     def lockOn(self, target):
         assert not self.hitBorder(target, 0)
         self.route_x0 = np.array(self.position)
-        self.velocity = (np.array(target) - self.route_x0) * 0.2
+        self.velocity = (np.array(target) - self.route_x0) * self.velocity_factor
         self.route_t0 = time.time()
         self.lock = True
 

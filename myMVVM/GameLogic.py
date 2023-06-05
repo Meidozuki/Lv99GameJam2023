@@ -136,7 +136,6 @@ class GameMainLogic(vbao.Model):
     def initGame(self):
         self.player = Player()
         self.property["player_pos"] = self.player.position
-        self.generateEnemy()
 
     def updateScore(self, pure=False):
         if pure:
@@ -156,7 +155,9 @@ class GameMainLogic(vbao.Model):
         self.reset()
 
     def generateEnemy(self):
-        self.enemies.append(Enemy())
+        temp = Enemy()
+        self.enemies.append(temp)
+        return temp
 
     def collisionDetect(self):
         # 4叉树
