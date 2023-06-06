@@ -135,6 +135,7 @@ class GameMainLogic(vbao.Model):
     # Game logic
     def initGame(self):
         self.player = Player()
+        self.player.collision_radius = 0.03
         self.property["player_pos"] = self.player.position
 
     def updateScore(self, pure=False):

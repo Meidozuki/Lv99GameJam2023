@@ -109,6 +109,13 @@ class View(vbao.View):
     def drawRect(self, color, rect, **args):
         pygame.draw.rect(self.screen, color, rect, **args)
 
+
+    def drawAndCover(self, img, pos):
+        rect = pygame.Rect(pos, img.get_size())
+        self.screen.fill('0x000000', rect)
+        self.screen.blit(img, pos)
+        pygame.display.update(rect)
+
     # About display
     def loadGif(self, img, pos, frames=4, interval=0.3):
         if not callable(pos):
@@ -210,11 +217,21 @@ class View(vbao.View):
         y = 300
         self.loadGif(pic, (x, y), 6, 0.2)
 
-    def drawAndCover(self, img, pos):
-        rect = pygame.Rect(pos, img.get_size())
-        self.screen.fill('0x000000', rect)
-        self.screen.blit(img, pos)
-        pygame.display.update(rect)
+    def handleKeyboardInput(self, key):
+        move_val = np.array([0.,0.])
+        move_dist = 0.05
+        match (key):
+            case 'w':
+                move_val[1] -= move_dist
+            case 's':
+                move_val[1] += move_dist
+            case 'a':
+                move_val[0] -= move_dist
+            case 'd':
+                move_val[0] += move_dist
+
+        self.commands["move"].setParameter(move_val)
+        self.runCommand("move")
 
     def displayScore(self, first=False):
         font = getFont(size=30)
@@ -266,8 +283,10 @@ class CommandListener(vbao.CommandListenerBase):
                 if not success: return
                 print("final score:", self.master.property.score)
                 self.master.upper_notify.onCommandComplete("gameOver", True)
-            case "initGame":
+            case "initGame" | "collide":
                 pass
+            case "generate":
+                self.master.displayPawns()
             case _:
                 logging.warning(f"uncaught cmd {cmd_name}")
 
