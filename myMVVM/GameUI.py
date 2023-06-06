@@ -104,7 +104,7 @@ class StateInGame(FSMState):
         self.window.view.property["HP"] = max_hp
         self.window.view.property["maxHP"] = max_hp
 
-        self.timer_countdown = 10
+        self.timer_countdown = 20
         self.timer = threading.Timer(self.timer_countdown, self.finishState)
 
     def wait(self):
@@ -119,6 +119,7 @@ class StateInGame(FSMState):
 
         try:
             self.timer.start()
+            view.pushTask(self.collideDetecting())
             t = view.loop.create_task(self.startGame())
             view.loop.run_until_complete(t)
         finally:
@@ -129,10 +130,21 @@ class StateInGame(FSMState):
         self.running = False
         self.next_state = StateScored
 
+    async def collideDetecting(self, sample_interval=0.1):
+        invincible_time = 1
+        view = self.window.view
+        while self.running:
+            view.runCommand("collideDetect")
+            await asyncio.sleep(sample_interval)
+            if view.property.shadow is True:
+                await asyncio.sleep(invincible_time)
+
     async def startGame(self):
         view = self.window.view
         view.property.player_pos = np.array(view.windowSize) / 2
         start = time.time()
+        enemy_tick = start
+        generate_enemy_second = 1
 
         while self.running:
             view.displayTime(start, self.timer_countdown)
@@ -141,9 +153,15 @@ class StateInGame(FSMState):
                 self.finishState()
                 break
 
+            if time.time() - enemy_tick > generate_enemy_second:
+                view.runCommand("generate")
+                enemy_tick = time.time()
+
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self.finishState()
+                elif event.type == pygame.KEYDOWN:
+                    view.handleKeyboardInput(event.unicode)
 
             await asyncio.sleep(0.05)
             pygame.display.flip()

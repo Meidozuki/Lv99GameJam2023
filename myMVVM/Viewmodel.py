@@ -1,6 +1,7 @@
 from .common import vbao
 # from .common import ConstValue
 
+import numpy as np
 import logging
 import queue
 
@@ -12,12 +13,15 @@ class GameViewModel(vbao.ViewModel):
 
         self.property["score"] = 0
         self.property["pawn"] = None
-        self.property.buffer = queue.SimpleQueue()
+        self.property["buffer"] = queue.SimpleQueue()
 
         self.commands["prepareRender"] = None
         self.commands["init"] = VMInitCommand(self)
         self.commands["initGame"] = VMGameInitCommand(self)
         self.commands["stopGame"] = VMGameStopCommand(self)
+        self.commands["collideDetect"] = VMCollideJudgeCommand(self)
+        self.commands["move"] = VMPlayerMoveCommand(self)
+        self.commands["generate"] = VMGenerateCommand(self)
 
     def generateEnemy(self):
         enemy = self.model.generateEnemy()
@@ -25,10 +29,15 @@ class GameViewModel(vbao.ViewModel):
 
     def initGame(self):
         self.model.initGame()
+        self.property["shadow"] = False
         self.property.buffer.put(self.model.player)
         start_enemy = 5
         for i in range(start_enemy):
             self.generateEnemy()
+
+    def judgeCollide(self):
+        collided = self.model.collisionDetect()
+        return len(collided) > 0
 
 
 class VMPropertyListener(vbao.PropertyListenerBase):
@@ -84,7 +93,28 @@ class VMGameInitCommand(VMCommand_with_self):
         self._viewmodel.triggerCommandNotifications("initGame", True)
 
 
+class VMCollideJudgeCommand(VMCommand_with_self):
+    def execute(self):
+        hit = self._viewmodel.judgeCollide()
+        if hit:
+            self._viewmodel.property["HP"] -= 1
+            self._viewmodel.model.triggerPropertyNotifications("HP")
+            self._viewmodel.property["shadow"] = True
+        self._viewmodel.triggerCommandNotifications("collide", hit)
+
+
 class VMGameStopCommand(VMCommand_with_self):
     def execute(self):
         self._viewmodel.model.gameOver()
         self._viewmodel.triggerCommandNotifications("stop", True)
+
+class VMPlayerMoveCommand(VMCommand_with_self):
+    def execute(self):
+        player = self._viewmodel.model.player
+        player.position = np.array(player.position) + np.array(*self.args)
+        self._viewmodel.triggerPropertyNotifications("playerPos")
+
+class VMGenerateCommand(VMCommand_with_self):
+    def execute(self):
+        self._viewmodel.generateEnemy()
+        self._viewmodel.triggerCommandNotifications("generate", True)

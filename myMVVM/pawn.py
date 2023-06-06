@@ -62,6 +62,7 @@ class Enemy(Collidable, Actor):
         self.route_t0 = None
         self.velocity_factor = 0.15
         self.tick_interval = 0.05
+        self.times_before_border_detect = 5
 
     def init(self):
         d = {0: ((0, 0.1), (0, 1)),
@@ -95,10 +96,15 @@ class Enemy(Collidable, Actor):
         self.velocity = (np.array(target) - self.route_x0) * self.velocity_factor
         self.route_t0 = time.time()
         self.lock = True
+        self.horizontal_mirror = self.position[0] > target[0]
 
     def update(self):
         t = time.time()
         self.position = self.route_x0 + self.velocity * (t - self.route_t0)
+        if self.times_before_border_detect > 0:
+            self.times_before_border_detect -= 1
+        elif self.hitBorder():
+            self.valid = False
 
     def hitBorder(self, position=None, hit_width=None):
         hit_width = self.collision_radius if hit_width is None else hit_width
@@ -117,6 +123,14 @@ class Enemy(Collidable, Actor):
         else:
             self.img_path = "local/img/SharkWalk.png"
         self.frames = 4
+
+    def getImage(self):
+        frames,img = super().getImage()
+        if self.lock is True:
+            if self.horizontal_mirror:
+                img = pygame.transform.flip(img,True,False)
+
+        return frames,img
 
     def __str__(self):
         return f"Enemy {self.position}"
