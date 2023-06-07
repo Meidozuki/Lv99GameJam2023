@@ -1,10 +1,121 @@
 
+from .common import vbao
+# from .common import ConstValue
+from .pawn import *
+
+import time
+import logging
 import numpy as np
 
-from .common import vbao
-from .common import ConstValue
 
-import threading
+class QuadTree:
+    class QuadTreeNode:
+        def __init__(self, low=np.array([0., 0.]), high=np.array([1., 1.]), loose_factor=0.2):
+            self.low = low
+            self.high = high
+            self.loosed_range = (high - low) * (1 + loose_factor) / 2
+            self.nodes = None
+
+        def isUpper(self, val, idx):
+            return val >= (self.high - self.loosed_range)[idx]
+
+        def isLower(self, val, idx):
+            return val <= (self.low + self.loosed_range)[idx]
+
+        @property
+        def hasChildren(self):
+            return self.nodes is not None
+
+        def createChildren(self):
+            cons = type(self)
+            self.nodes = []
+
+            lx, ly = self.low
+            cx, cy = (self.low + self.high) / 2
+            hx, hy = self.high
+
+            paras = [(lx, ly), (cx, cy),
+                     (lx, cy), (cx, hy),
+                     (cx, ly), (hx, cy),
+                     (cx, cy), (hx, hy)]
+            paras = np.array(paras).reshape([4, 2, 2])
+
+            for xy in paras:
+                self.nodes.append(cons(*xy))
+
+        def divide(self, leaves, max_num_each_node=2, max_depth=4):
+            self.leaves = leaves
+            nodes = [[], [], [], []]
+            if len(leaves) <= max_num_each_node:
+                return
+
+            if max_depth <= 0:
+                return
+
+            self.createChildren()
+
+            def addLeaf(x_cond, y_cond, true_fn):
+                if x_cond and y_cond:
+                    true_fn()
+
+            for leaf in leaves:
+                def push_leaf(idx):
+                    def f():
+                        nodes[idx].append(leaf)
+
+                    return f
+
+                x, y = leaf.position
+                addLeaf(self.isLower(x, 0), self.isLower(y, 1), push_leaf(0))
+                addLeaf(self.isLower(x, 0), self.isUpper(y, 1), push_leaf(1))
+                addLeaf(self.isUpper(x, 0), self.isLower(y, 1), push_leaf(2))
+                addLeaf(self.isUpper(x, 0), self.isUpper(y, 1), push_leaf(3))
+
+            for i in range(4):
+                self.nodes[i].divide(nodes[i], max_depth=max_depth - 1)
+
+    def __init__(self, objects: list[Collidable]):
+        self.root = QuadTree.QuadTreeNode()
+        self.root.divide(objects)
+
+    def hit(self, x, y, radius):
+        # find leaf node
+        node = self.find(x, y)
+        center = np.array([x, y])
+        re = []
+        for nd in node.leaves:
+            dist = np.linalg.norm(center - np.array(nd.position))
+            if dist < radius:
+                re.append(nd)
+        return re
+
+    def find(self, x, y):
+        # find leaf node
+        center = np.array([x, y])
+
+        def go(node):
+            if not node.hasChildren:
+                return node
+            else:
+                mid = (node.low + node.high) / 2
+                xphase, yphase = center > mid
+                idx = xphase * 2 + yphase
+                return go(node.nodes[idx])
+
+        return go(self.root)
+
+    def traversal(self):
+        def go(node):
+            if node.hasChildren:
+                print("parent = ", node.low, node.high, node.leaves)
+                for nd in node.nodes:
+                    print(nd.leaves)
+                print()
+                for nd in node.nodes:
+                    go(nd)
+
+        go(self.root)
+
 
 class GameMainLogic(vbao.Model):
     """
@@ -14,66 +125,50 @@ class GameMainLogic(vbao.Model):
     def __init__(self):
         super().__init__()
 
-        self.possible_grid_types = (0,2)
+        self.reset()
+        self.enemies = []
 
+        self.possible_event = ('time','combo')
 
-    # Game logic
-    def generate(self, shape):
-        x = np.random.randint(*self.possible_grid_types, shape)
-        b = np.all(x != 0, axis=1)
-        while np.any(b):
-            idx = np.nonzero(b)[0]
-            x[idx] = np.random.randint(*self.possible_grid_types, (idx.shape[0], shape[1]))
-            b = np.all(x != 0, axis=1)
-        return x
-
-
-    def gameInit(self):
+    # 用来初始化，或者注销标记gc
+    def reset(self):
         self.combo = 0
         self.score = 0
-        self.row = self.property["row"].x
-        self.col = self.property["col"].x
-        self.board = self.generate([self.row, self.col])
 
-    def stepOnGrid(self, grid_no, verbose=False):
-        if self.board[0, grid_no] == 0:
-            self.combo += 1
-        else:
-            self.combo = 0
-            self.property["HP"] -= 1
-            self.triggerPropertyNotifications("HP")
-        self.updateScore()
+    # Game logic
+    def initGame(self):
+        self.player = Player()
+        self.player.collision_radius = 0.03
+        self.property["player_pos"] = self.player.position
 
-        self.board[:-1] = self.board[1:]
-        self.board[-1] = self.generate([1, self.col])
+    def updateScore(self, event_type, time=None):
+        if event_type not in self.possible_event:
+            logging.error(f"score event {event_type} is not in {self.possible_event}")
+            raise ValueError
 
-        # 更新score耗时少，直接新开线程，将主线程用于更新棋盘
-        score_thread = threading.Thread(target=self.calScore)
-        score_thread.start()
+        match event_type:
+            case 'combo':
+                self.score += (self.combo + 1) // 2 * 5
+                self.combo += 1
+            case 'time':
+                self.score += time
 
-        self.triggerPropertyNotifications("board")
-
-        score_thread.join()
-        if verbose:
-            self.printScore()
-
-    def updateScore(self, pure=False):
-        if pure:
-            return self.score
-
-        self.score += (self.combo+1)//2 * 5
-
-
-    def calScore(self):
-        self.property["score"] = int(self.updateScore(pure=True))
+        self.property["score"] = int(self.score)
         self.triggerPropertyNotifications("score")
 
     def printScore(self):
         print(f"score = {self.score}, combo = {self.combo}")
 
     def gameOver(self):
-        return self.calScore()
+        self.reset()
 
-    # For data exchanging
-    def ctx(self):
-        return ConstValue(self.board)
+    def generateEnemy(self):
+        temp = Enemy()
+        self.enemies.append(temp)
+        return temp
+
+    def collisionDetect(self):
+        # 4叉树
+        quadtree = QuadTree(self.enemies)
+        collided = quadtree.hit(*self.player.position, self.player.collision_radius)
+        return collided

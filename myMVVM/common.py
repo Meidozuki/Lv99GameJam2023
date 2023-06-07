@@ -1,5 +1,20 @@
 import vbao
 from easydict import EasyDict
+import pygame
+import numpy as np
+
+
+def scalePic(pic, factor):
+    w, h = pic.get_size()
+    target = (int(w * factor), int(h * factor))
+    return pygame.transform.scale(pic, target)
+
+
+def truncatedNormal(low, high, sigma=1.0, center=None):
+    center = (low + high) / 2 if center is None else center
+    x = np.random.normal(center, sigma)
+    return np.clip(x, low, high)
+
 
 class ConstValue:
     def __init__(self, value):
@@ -19,3 +34,5 @@ color = EasyDict({
     'white': '0xFFFFFF',
     'black': '0x000000'
 })
+
+game_setting = {}

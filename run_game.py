@@ -1,5 +1,6 @@
 import os, sys
-#assert os.path.exists("./VBAO/Lib_VBao/python")
+
+# assert os.path.exists("./VBAO/Lib_VBao/python")
 sys.path.append(os.path.abspath("./VBAO/Lib_VBao/python"))
 
 import pygame
@@ -8,8 +9,9 @@ from myMVVM import vbao
 from myMVVM import GameMainLogic, GameViewModel, Window
 
 import time
-import threading
 import logging
+
+
 # logging.basicConfig(level=logging.INFO)
 
 class GameApp(vbao.App):
@@ -17,7 +19,7 @@ class GameApp(vbao.App):
         vbao.use_easydict()
 
         self.model = GameMainLogic()
-        self.viewmodel = GameViewModel(7, 5)
+        self.viewmodel = GameViewModel()
         self.window = Window()
 
     def bind(self, *args):
@@ -33,21 +35,16 @@ class GameApp(vbao.App):
         self.viewmodel.runCommand("init")
 
         try:
-            self.window.timer.start()
             self.window.loop()
-        except KeyboardInterrupt as e:
-            print(e.args)
+        except:
+            raise
         finally:
-            self.window.timer.cancel()
-            for th in self.window.view.running_threads:
-                th.stop()
             pygame.quit()
-            print("Window will automatically close after 3s")
-            time.sleep(1)
 
 def main():
     app = GameApp()
     app.run()
+
 
 if __name__ == '__main__':
     main()
