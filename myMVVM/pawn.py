@@ -5,7 +5,7 @@ import pygame
 import time
 import abc
 
-from .GameView import scalePic
+from .common import scalePic, truncatedNormal
 
 
 class Collidable:
@@ -60,7 +60,7 @@ class Enemy(Collidable, Actor):
         self.velocity = None
         self.route_x0 = None
         self.route_t0 = None
-        self.velocity_factor = 0.15
+        self.velocity_factor = 0.15 * truncatedNormal(0.8, 2, 1.5, center=1)
         self.tick_interval = 0.05
         self.times_before_border_detect = 5
 
