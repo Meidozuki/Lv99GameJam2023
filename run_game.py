@@ -7,6 +7,7 @@ import pygame
 
 from myMVVM import vbao
 from myMVVM import GameMainLogic, GameViewModel, Window
+from myMVVM.common import resource
 
 import time
 import logging
@@ -44,6 +45,7 @@ class GameApp(vbao.App):
 def main():
     app = GameApp()
     app.run()
+    # print(resource)
 
 
 if __name__ == '__main__':

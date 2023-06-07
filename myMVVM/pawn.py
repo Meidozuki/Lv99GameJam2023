@@ -6,6 +6,7 @@ import time
 import abc
 
 from .common import scalePic, truncatedNormal
+from .common import res
 
 
 class Collidable:
@@ -42,7 +43,7 @@ class Player(Collidable, Actor):
 
     def renderSetting(self):
         super().renderSetting()
-        self.img_path = "local/img/Swim.png"
+        self.img_path = res("local/img/Swim.png")
         self.frames = 6
 
     async def tickLogic(self, interval, pos_fn):
@@ -91,7 +92,8 @@ class Enemy(Collidable, Actor):
             await asyncio.sleep(interval)
 
     def lockOn(self, target):
-        assert not self.hitBorder(target, 0)
+        if self.hitBorder(target, 0):
+            print("invalid lockOn target",target)
         self.route_x0 = np.array(self.position)
         self.velocity = (np.array(target) - self.route_x0) * self.velocity_factor
         self.route_t0 = time.time()
@@ -119,9 +121,9 @@ class Enemy(Collidable, Actor):
     def renderSetting(self):
         super().renderSetting()
         if self.lock is False:
-            self.img_path = "local/img/SharkIdle.png"
+            self.img_path = res("local/img/SharkIdle.png")
         else:
-            self.img_path = "local/img/SharkWalk.png"
+            self.img_path = res("local/img/SharkWalk.png")
         self.frames = 4
 
     def getImage(self):

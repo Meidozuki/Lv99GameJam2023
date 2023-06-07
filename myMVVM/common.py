@@ -36,3 +36,10 @@ color = EasyDict({
 })
 
 game_setting = {}
+
+resource = set()
+
+
+def res(filepath: str):
+    resource.add(filepath)
+    return filepath
