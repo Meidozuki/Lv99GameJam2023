@@ -1,6 +1,6 @@
 import pygame
 
-from .common import vbao, color
+from .common import vbao, color, res
 from .common import scalePic
 from . import Enemy
 
@@ -10,6 +10,7 @@ import itertools
 import numpy as np
 from functools import wraps
 from easydict import EasyDict
+from asyncio import CancelledError
 
 
 def getPosAlignedByCenter(ref: pygame.Rect, img: pygame.Surface):
@@ -18,15 +19,21 @@ def getPosAlignedByCenter(ref: pygame.Rect, img: pygame.Surface):
 
 
 def cancellableCoroutine(func):
-    from asyncio import CancelledError
     @wraps(func)
     async def inner(*args, **kwargs):
         try:
-            func(*args, **kwargs)
+            await func(*args, **kwargs)
         except CancelledError:
             print(func.__name__, "cancelled")
 
     return inner
+
+
+async def cancellableCoroutine_AfterBuild(func):
+    try:
+        await func
+    except CancelledError:
+        print(func.__name__, "cancelled")
 
 
 def getFont(font=None, size=12):
@@ -41,7 +48,7 @@ def getFont(font=None, size=12):
         case _:
             raise ValueError(f"cannot find font {font}")
 
-    return pygame.font.Font(path, size)
+    return pygame.font.Font(res(path), size)
 
 
 def getTextFigure(font, text, color='0xffffff', *args):
@@ -126,6 +133,7 @@ class View(vbao.View):
             self.drawAndCover(sub, pos())
             time.sleep(interval)
 
+    @cancellableCoroutine
     async def loadGif_a(self, img, pos, frames=4, interval=0.3, endless_loop=True):
         if not callable(pos):
             p = pos
@@ -142,7 +150,15 @@ class View(vbao.View):
 
     # 显示相关
     def showMainTitle(self, start_button_zone, end_button_zone):
-        self.displayTurtle()
+        def drawBadge():
+            img = pygame.image.load(res("local/img/BADGE_01.png"))
+            img = scalePic(img, 0.2)
+            margin = 20
+            y = self.windowSize[1] - img.get_size()[1] - margin
+            self.drawAndCover(img, (margin,y))
+
+        drawBadge()
+        self.displayTurtle(6)
 
         blue = [0, 0, 100]
         self.drawRect(blue, start_button_zone)
@@ -159,14 +175,15 @@ class View(vbao.View):
     def showFinalScore(self):
         score = self.property.score
         self.drawRect('0x777777', [100, 200, 600, 200])
-        font = getFont()
-        text = getTextFigure(font, f'score={score}')
+        font = getFont(size=20)
+        text = getTextFigure(font, f'Your score={score}')
         self.screen.blit(text, [300, 300])
 
-    def displayTurtle(self):
-        pic = pygame.image.load("local/img/TurtleIdle.png")
+    def displayTurtle(self,n=1):
+        pic = pygame.image.load(res("local/img/TurtleIdle.png"))
         pic = scalePic(pic, 2)
-        self.pushTask(self.loadGif_a(pic, (100, 70)))
+        for i in range(1,n+1):
+            self.pushTask(self.loadGif_a(pic, (i*100, 60)))
 
     async def updatePawn(self, pawn, sleep_time=0.1):
         def resizePos(x, y):
@@ -205,12 +222,13 @@ class View(vbao.View):
     def displayPawns(self):
         if not self.property.buffer.empty():
             queue = self.property.buffer
-            player_pos_ = lambda: np.array(self.property.player_pos) / np.array(self.windowSize)
+            def get_pos():
+                return self.property.player_pos
 
             while not queue.empty():
                 pawn = queue.get()
                 self.pushTask(self.updatePawn(pawn))
-                self.pushTask(pawn.tickLogic(player_pos_, 0.1))
+                self.pushTask(pawn.tickLogic(get_pos, 0.1))
 
     def playJumpAnim(self):
         pic = pygame.image.load("local/img/Jump.png")
@@ -248,11 +266,11 @@ class View(vbao.View):
         text = getTextFigure(font, str(self.property.score))
         self.drawAndCover(text, self.score_pos[1])
 
-    def displayTime(self, start, countdown):
+    def displayTime(self, start):
         font = getFont(size=20)
         time_ = time.time()
-        text = getTextFigure(font, "{:.2f}".format(countdown - (time_ - start)))
-        self.drawAndCover(text, (200, 50))
+        text = getTextFigure(font, "Survived {:.2f}s".format(time_ - start))
+        self.drawAndCover(text, (120, 50))
 
     def displayPlayerStatus(self):
         cur, maxHP = self.property.HP, self.property.maxHP

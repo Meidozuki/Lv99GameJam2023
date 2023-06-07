@@ -2,7 +2,7 @@ import pygame
 
 import vbao
 from .GameView import View
-from .common import color
+from .common import color, game_setting
 
 import asyncio
 import threading
@@ -79,6 +79,7 @@ class StateAtMenu(FSMState):
         while self.running:
             task = view.loop.create_task(self.idle())
             view.loop.run_until_complete(task)
+        view.cancelTasks()
 
         return self.next_state
 
@@ -104,9 +105,6 @@ class StateInGame(FSMState):
         self.window.view.property["HP"] = max_hp
         self.window.view.property["maxHP"] = max_hp
 
-        self.timer_countdown = 30
-        self.timer = threading.Timer(self.timer_countdown, self.finishState)
-
     def wait(self):
         view = self.window.view
         view.clearScreen()
@@ -114,17 +112,15 @@ class StateInGame(FSMState):
         view.runCommand("initGame")
 
         view.displayScore(first=True)
-        view.displayTurtle()
         view.displayPawns()
 
         try:
-            self.timer.start()
             view.pushTask(self.collideDetecting())
-            view.pushTask(self.growScoreByTime(0.5))
+            view.pushTask(self.growScoreByTime())
             t = view.loop.create_task(self.startGame())
             view.loop.run_until_complete(t)
         finally:
-            self.timer.cancel()
+            pass
         return self.next_state
 
     def finishState(self):
@@ -140,7 +136,9 @@ class StateInGame(FSMState):
             if view.property.shadow is True:
                 await asyncio.sleep(invincible_time)
 
-    async def growScoreByTime(self, interval, score_per_time=1):
+    async def growScoreByTime(self,
+                              interval=game_setting["growScoreEverySeconds"],
+                              score_per_time=game_setting["growScoreAmount"]):
         start = time.time()
         view = self.window.view
         cmd = view.commands["score"]
@@ -158,13 +156,12 @@ class StateInGame(FSMState):
 
     async def startGame(self):
         view = self.window.view
-        view.property.player_pos = np.array(view.windowSize) / 2
         start = time.time()
         enemy_tick = start
-        generate_enemy_second = 1
+        generate_enemy_second = np.random.randint(6,12) / 10
 
         while self.running:
-            view.displayTime(start, self.timer_countdown)
+            view.displayTime(start)
             view.displayPlayerStatus()
             if view.property.HP <= 0:
                 self.finishState()
