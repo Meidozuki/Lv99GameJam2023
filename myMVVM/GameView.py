@@ -175,15 +175,15 @@ class View(vbao.View):
     def showFinalScore(self):
         score = self.property.score
         self.drawRect('0x777777', [100, 200, 600, 200])
-        font = getFont()
-        text = getTextFigure(font, f'score={score}')
+        font = getFont(size=20)
+        text = getTextFigure(font, f'Your score={score}')
         self.screen.blit(text, [300, 300])
 
     def displayTurtle(self,n=1):
         pic = pygame.image.load(res("local/img/TurtleIdle.png"))
         pic = scalePic(pic, 2)
         for i in range(1,n+1):
-            self.pushTask(self.loadGif_a(pic, (i*100, 70)))
+            self.pushTask(self.loadGif_a(pic, (i*100, 60)))
 
     async def updatePawn(self, pawn, sleep_time=0.1):
         def resizePos(x, y):
@@ -266,11 +266,11 @@ class View(vbao.View):
         text = getTextFigure(font, str(self.property.score))
         self.drawAndCover(text, self.score_pos[1])
 
-    def displayTime(self, start, countdown):
+    def displayTime(self, start):
         font = getFont(size=20)
         time_ = time.time()
-        text = getTextFigure(font, "{:.2f}".format(countdown - (time_ - start)))
-        self.drawAndCover(text, (200, 50))
+        text = getTextFigure(font, "Survived {:.2f}s".format(time_ - start))
+        self.drawAndCover(text, (120, 50))
 
     def displayPlayerStatus(self):
         cur, maxHP = self.property.HP, self.property.maxHP
