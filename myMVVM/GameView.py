@@ -1,19 +1,15 @@
 import pygame
+
 from .common import vbao, color
+from .common import scalePic
+from . import Enemy
 
 import asyncio
-from asyncio import CancelledError
 import time, logging
 import itertools
 import numpy as np
 from functools import wraps
 from easydict import EasyDict
-
-
-def scalePic(pic, factor):
-    w, h = pic.get_size()
-    target = (int(w * factor), int(h * factor))
-    return pygame.transform.scale(pic, target)
 
 
 def getPosAlignedByCenter(ref: pygame.Rect, img: pygame.Surface):
@@ -22,6 +18,7 @@ def getPosAlignedByCenter(ref: pygame.Rect, img: pygame.Surface):
 
 
 def cancellableCoroutine(func):
+    from asyncio import CancelledError
     @wraps(func)
     async def inner(*args, **kwargs):
         try:
@@ -109,7 +106,6 @@ class View(vbao.View):
     def drawRect(self, color, rect, **args):
         pygame.draw.rect(self.screen, color, rect, **args)
 
-
     def drawAndCover(self, img, pos):
         rect = pygame.Rect(pos, img.get_size())
         self.screen.fill('0x000000', rect)
@@ -160,9 +156,9 @@ class View(vbao.View):
         text = getTextFigure(font, "quit game")
         self.screen.blit(text, getPosAlignedByCenter(end_button_zone, text))
 
-    def showScore(self):
+    def showFinalScore(self):
         score = self.property.score
-        self.drawRect('0x777777', [200, 200, 200, 200])
+        self.drawRect('0x777777', [100, 200, 600, 200])
         font = getFont()
         text = getTextFigure(font, f'score={score}')
         self.screen.blit(text, [300, 300])
@@ -173,12 +169,12 @@ class View(vbao.View):
         self.pushTask(self.loadGif_a(pic, (100, 70)))
 
     async def updatePawn(self, pawn, sleep_time=0.1):
-        def resizePos(x,y):
+        def resizePos(x, y):
             nx = x * self.windowSize[0]
-            ny = (0.2 + y*0.8) * self.windowSize[1]
-            return nx,ny
+            ny = (0.2 + y * 0.8) * self.windowSize[1]
+            return nx, ny
 
-        while True:
+        while pawn.valid:
             # Shark会更改image，需要放在循环中
             frames, img = pawn.getImage()
             w, h = img.get_size()
@@ -188,17 +184,23 @@ class View(vbao.View):
             for i in range(frames):
                 # 第一时间退出循环
                 if not pawn.valid:
-                    return
+                    break
 
                 x, y = pawn.position
-                new_pos = resizePos(x,y)
+                new_pos = resizePos(x, y)
                 sub = img.subsurface([i * wi, 0, wi, h])
                 self.drawAndCover(sub, new_pos)
                 await asyncio.sleep(sleep_time)
 
                 # 覆盖当前位置，避免重影
-                rect = pygame.Rect(new_pos, (wi,h))
+                rect = pygame.Rect(new_pos, (wi, h))
                 self.screen.fill('0x000000', rect)
+
+        # 摧毁时活动
+        if isinstance(pawn, Enemy):
+            cmd = self.commands["score"]
+            cmd.setParameter("combo")
+            cmd.execute()
 
     def displayPawns(self):
         if not self.property.buffer.empty():
@@ -218,9 +220,9 @@ class View(vbao.View):
         self.loadGif(pic, (x, y), 6, 0.2)
 
     def handleKeyboardInput(self, key):
-        move_val = np.array([0.,0.])
+        move_val = np.array([0., 0.])
         move_dist = 0.05
-        match (key):
+        match key:
             case 'w':
                 move_val[1] -= move_dist
             case 's':

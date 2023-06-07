@@ -104,7 +104,7 @@ class StateInGame(FSMState):
         self.window.view.property["HP"] = max_hp
         self.window.view.property["maxHP"] = max_hp
 
-        self.timer_countdown = 20
+        self.timer_countdown = 30
         self.timer = threading.Timer(self.timer_countdown, self.finishState)
 
     def wait(self):
@@ -120,6 +120,7 @@ class StateInGame(FSMState):
         try:
             self.timer.start()
             view.pushTask(self.collideDetecting())
+            view.pushTask(self.growScoreByTime(0.5))
             t = view.loop.create_task(self.startGame())
             view.loop.run_until_complete(t)
         finally:
@@ -138,6 +139,22 @@ class StateInGame(FSMState):
             await asyncio.sleep(sample_interval)
             if view.property.shadow is True:
                 await asyncio.sleep(invincible_time)
+
+    async def growScoreByTime(self, interval, score_per_time=1):
+        start = time.time()
+        view = self.window.view
+        cmd = view.commands["score"]
+
+        while self.running:
+            await asyncio.sleep(interval)
+
+            t = time.time()
+            if t > start + interval:
+                counts = int(np.ceil((t-start)/interval))
+                start += counts*interval
+
+                cmd.setParameter("time", counts*score_per_time)
+                cmd.execute()
 
     async def startGame(self):
         view = self.window.view
@@ -173,7 +190,7 @@ class StateScored(FSMState):
         self.window = window_ref
 
     def wait(self):
-        self.window.view.showScore()
+        self.window.view.showFinalScore()
 
         pygame.display.flip()
         time.sleep(0.5)  # 防止点击过头

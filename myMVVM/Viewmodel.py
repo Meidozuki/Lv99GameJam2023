@@ -22,6 +22,7 @@ class GameViewModel(vbao.ViewModel):
         self.commands["collideDetect"] = VMCollideJudgeCommand(self)
         self.commands["move"] = VMPlayerMoveCommand(self)
         self.commands["generate"] = VMGenerateCommand(self)
+        self.commands["score"] = VMScoreCommand(self)
 
     def generateEnemy(self):
         enemy = self.model.generateEnemy()
@@ -38,6 +39,11 @@ class GameViewModel(vbao.ViewModel):
     def judgeCollide(self):
         collided = self.model.collisionDetect()
         return len(collided) > 0
+
+    def updateScore(self, event_type, time=None):
+        assert event_type in self.model.possible_event
+
+        self.model.updateScore(event_type,time)
 
 
 class VMPropertyListener(vbao.PropertyListenerBase):
@@ -118,3 +124,15 @@ class VMGenerateCommand(VMCommand_with_self):
     def execute(self):
         self._viewmodel.generateEnemy()
         self._viewmodel.triggerCommandNotifications("generate", True)
+
+
+class VMScoreCommand(VMCommand_with_self):
+    def setParameter(self, event_type, time=None):
+        super().setParameter(event_type,time)
+
+    def execute(self):
+        if len(self.args) == 0:
+            logging.warning("score command called with no args")
+            return
+        self._viewmodel.updateScore(*self.args)
+        self.args = []

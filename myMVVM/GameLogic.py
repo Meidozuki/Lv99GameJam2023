@@ -1,10 +1,11 @@
-import time
-
-import numpy as np
 
 from .common import vbao
-from .common import ConstValue
+# from .common import ConstValue
 from .pawn import *
+
+import time
+import logging
+import numpy as np
 
 
 class QuadTree:
@@ -127,6 +128,8 @@ class GameMainLogic(vbao.Model):
         self.reset()
         self.enemies = []
 
+        self.possible_event = ('time','combo')
+
     # 用来初始化，或者注销标记gc
     def reset(self):
         self.combo = 0
@@ -138,21 +141,25 @@ class GameMainLogic(vbao.Model):
         self.player.collision_radius = 0.03
         self.property["player_pos"] = self.player.position
 
-    def updateScore(self, pure=False):
-        if pure:
-            return self.score
+    def updateScore(self, event_type, time=None):
+        if event_type not in self.possible_event:
+            logging.error(f"score event {event_type} is not in {self.possible_event}")
+            raise ValueError
 
-        self.score += (self.combo + 1) // 2 * 5
+        match event_type:
+            case 'combo':
+                self.score += (self.combo + 1) // 2 * 5
+                self.combo += 1
+            case 'time':
+                self.score += time
 
-    def calScore(self):
-        self.property["score"] = int(self.updateScore(pure=True))
+        self.property["score"] = int(self.score)
         self.triggerPropertyNotifications("score")
 
     def printScore(self):
         print(f"score = {self.score}, combo = {self.combo}")
 
     def gameOver(self):
-        self.calScore()
         self.reset()
 
     def generateEnemy(self):
