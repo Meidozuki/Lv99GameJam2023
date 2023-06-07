@@ -11,8 +11,6 @@ from myMVVM.common import resource
 
 import time
 import logging
-
-
 # logging.basicConfig(level=logging.INFO)
 
 class GameApp(vbao.App):

@@ -1,7 +1,8 @@
 import vbao
-from easydict import EasyDict
+
 import pygame
 import numpy as np
+from easydict import EasyDict
 
 
 def scalePic(pic, factor):
@@ -35,8 +36,15 @@ color = EasyDict({
     'black': '0x000000'
 })
 
-game_setting = {}
+# 游戏设置项
+game_setting = {
+    "growScoreEverySeconds": 0.5,
+    "growScoreAmount": 1,
+    "initEnemyNum": 5
+}
 
+
+# 统计使用的资源
 resource = set()
 
 
