@@ -1,4 +1,3 @@
-
 from .common import vbao
 # from .common import ConstValue
 from .pawn import *
@@ -128,7 +127,7 @@ class GameMainLogic(vbao.Model):
         self.reset()
         self.enemies = []
 
-        self.possible_event = ('time','combo')
+        self.possible_event = ('time', 'combo')
 
     # 用来初始化，或者注销标记gc
     def reset(self):
@@ -140,6 +139,11 @@ class GameMainLogic(vbao.Model):
         self.player = Player()
         self.player.collision_radius = 0.03
         self.property["player_pos"] = self.player.position
+
+    def setPlayerPos(self, pos):
+        self.player.position = np.clip(pos, 0, 1)
+        self.property["player_pos"] = self.player.position
+        self.triggerPropertyNotifications("playerPos")
 
     def updateScore(self, event_type, time=None):
         if event_type not in self.possible_event:

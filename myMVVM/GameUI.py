@@ -79,6 +79,7 @@ class StateAtMenu(FSMState):
         while self.running:
             task = view.loop.create_task(self.idle())
             view.loop.run_until_complete(task)
+        view.cancelTasks()
 
         return self.next_state
 

@@ -53,8 +53,8 @@ class VMPropertyListener(vbao.PropertyListenerBase):
     def onPropertyChanged(self, prop_name: str):
         logging.info(f"Viewmodel receive property notif {prop_name}")
         match prop_name:
-            case "score":
-                self.master.triggerPropertyNotifications("score")
+            case "score" | "playerPos":
+                self.master.triggerPropertyNotifications(prop_name)
             case "HP":
                 if self.master.property["HP"] <= 0:
                     self.master.runCommand("stopGame")
@@ -116,9 +116,8 @@ class VMGameStopCommand(VMCommand_with_self):
 
 class VMPlayerMoveCommand(VMCommand_with_self):
     def execute(self):
-        player = self._viewmodel.model.player
-        player.position = np.array(player.position) + np.array(*self.args)
-        self._viewmodel.triggerPropertyNotifications("playerPos")
+        model = self._viewmodel.model
+        model.setPlayerPos(np.array(model.player.position) + np.array(*self.args))
 
 class VMGenerateCommand(VMCommand_with_self):
     def execute(self):
