@@ -40,7 +40,8 @@ color = EasyDict({
 game_setting = {
     "growScoreEverySeconds": 0.5,
     "growScoreAmount": 1,
-    "initEnemyNum": 5
+    "initEnemyNum": 5,
+    "invincible_time": 1
 }
 
 

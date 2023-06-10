@@ -6,7 +6,6 @@ from . import Enemy
 
 import asyncio
 import time, logging
-import itertools
 import numpy as np
 from functools import wraps
 from easydict import EasyDict
@@ -60,7 +59,6 @@ class View(vbao.View):
         super().__init__()
         self.prop_listener = PropertyListener(self)
         self.cmd_listener = CommandListener(self)
-        self.upper_notify = None
 
         self.loop = asyncio.get_event_loop()
         self.running_tasks = []
@@ -96,7 +94,7 @@ class View(vbao.View):
     def initWindow(self, title="Hello World"):
         pygame.display.set_caption(title)
         self.screen = pygame.display.set_mode(size=(800, 600))
-        self.screen.fill('0x000000')
+        self.clearScreen()
 
     # tasks相关
     def cancelTasks(self):
@@ -113,11 +111,13 @@ class View(vbao.View):
     def drawRect(self, color, rect, **args):
         pygame.draw.rect(self.screen, color, rect, **args)
 
-    def drawAndCover(self, img, pos):
+    def drawAndCover(self, img, pos, update_rect: tuple = ()):
+        if not isinstance(update_rect, tuple):
+            logging.error(update_rect,"is not a tuple")
         rect = pygame.Rect(pos, img.get_size())
         self.screen.fill('0x000000', rect)
         self.screen.blit(img, pos)
-        pygame.display.update(rect)
+        pygame.display.update((rect,) + update_rect)
 
     # About display
     def loadGif(self, img, pos, frames=4, interval=0.3):
@@ -155,7 +155,7 @@ class View(vbao.View):
             img = scalePic(img, 0.2)
             margin = 20
             y = self.windowSize[1] - img.get_size()[1] - margin
-            self.drawAndCover(img, (margin,y))
+            self.drawAndCover(img, (margin, y))
 
         drawBadge()
         self.displayTurtle(6)
@@ -179,11 +179,11 @@ class View(vbao.View):
         text = getTextFigure(font, f'Your score={score}')
         self.screen.blit(text, [300, 300])
 
-    def displayTurtle(self,n=1):
+    def displayTurtle(self, n=1):
         pic = pygame.image.load(res("local/img/TurtleIdle.png"))
         pic = scalePic(pic, 2)
-        for i in range(1,n+1):
-            self.pushTask(self.loadGif_a(pic, (i*100, 60)))
+        for i in range(1, n + 1):
+            self.pushTask(self.loadGif_a(pic, (i * 100, 60)))
 
     async def updatePawn(self, pawn, sleep_time=0.1):
         def resizePos(x, y):
@@ -191,6 +191,7 @@ class View(vbao.View):
             ny = (0.2 + y * 0.8) * self.windowSize[1]
             return nx, ny
 
+        prev_rect = None
         while pawn.valid:
             # Shark会更改image，需要放在循环中
             frames, img = pawn.getImage()
@@ -206,12 +207,12 @@ class View(vbao.View):
                 x, y = pawn.position
                 new_pos = resizePos(x, y)
                 sub = img.subsurface([i * wi, 0, wi, h])
-                self.drawAndCover(sub, new_pos)
+                self.drawAndCover(sub, new_pos, update_rect=(prev_rect,))
                 await asyncio.sleep(sleep_time)
 
                 # 覆盖当前位置，避免重影
-                rect = pygame.Rect(new_pos, (wi, h))
-                self.screen.fill('0x000000', rect)
+                prev_rect = pygame.Rect(new_pos, (wi, h))
+                self.screen.fill('0x000000', prev_rect)
 
         # 摧毁时活动
         if isinstance(pawn, Enemy):
@@ -222,6 +223,7 @@ class View(vbao.View):
     def displayPawns(self):
         if not self.property.buffer.empty():
             queue = self.property.buffer
+
             def get_pos():
                 return self.property.player_pos
 
@@ -302,7 +304,6 @@ class CommandListener(vbao.CommandListenerBase):
             case "stop":
                 if not success: return
                 print("final score:", self.master.property.score)
-                self.master.upper_notify.onCommandComplete("gameOver", True)
             case "initGame" | "collide":
                 pass
             case "generate":
