@@ -47,7 +47,7 @@ class VMCollideJudgeCommand(VMCommand_with_self):
             self._viewmodel.property["HP"] -= 1
             self._viewmodel.model.triggerPropertyNotifications("HP")
             self._viewmodel.property["shadow"] = True
-        self._viewmodel.triggerCommandNotifications("collide", hit)
+        self._viewmodel.triggerCommandNotifications("collide", True)
 
 
 class VMGameStopCommand(VMCommand_with_self):

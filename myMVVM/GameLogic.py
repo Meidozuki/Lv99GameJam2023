@@ -1,8 +1,6 @@
 from .common import vbao
-# from .common import ConstValue
 from .pawn import *
 
-import time
 import logging
 import numpy as np
 
@@ -137,7 +135,7 @@ class GameMainLogic(vbao.Model):
     # Game logic
     def initGame(self):
         self.player = Player()
-        self.player.collision_radius = 0.03
+        self.player.collision_radius = 0.04
         self.property["player_pos"] = self.player.position
 
     def setPlayerPos(self, pos):

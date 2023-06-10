@@ -1,8 +1,8 @@
 import pygame
 
 import vbao
-from .GameView import View
-from .common import color, game_setting
+from .GameView import View, cancellableCoroutine
+from .common import game_setting
 
 import asyncio
 import threading
@@ -13,7 +13,6 @@ import numpy as np
 class Window:
     def __init__(self):
         self.view = View()
-        self.view.upper_notify = GameOverMessage(self)
 
         self.state = None
 
@@ -73,7 +72,7 @@ class StateAtMenu(FSMState):
         view = self.window.view
         view.clearScreen()
 
-        self.window.view.showMainTitle(self.start_button_zone, self.end_button_zone)
+        view.showMainTitle(self.start_button_zone, self.end_button_zone)
 
         pygame.display.flip()
         while self.running:
@@ -97,10 +96,9 @@ class StateAtMenu(FSMState):
 
 
 class StateInGame(FSMState):
-    def __init__(self, window_ref, game_time=30, max_hp: int = 3):
+    def __init__(self, window_ref, max_hp: int = 3):
         super().__init__()
         self.window = window_ref
-        self.game_time = game_time
         self.maxHP = max_hp
         self.window.view.property["HP"] = max_hp
         self.window.view.property["maxHP"] = max_hp
@@ -120,22 +118,25 @@ class StateInGame(FSMState):
             t = view.loop.create_task(self.startGame())
             view.loop.run_until_complete(t)
         finally:
-            pass
+            view.cancelTasks()
         return self.next_state
 
     def finishState(self):
         self.running = False
         self.next_state = StateScored
 
+    @cancellableCoroutine
     async def collideDetecting(self, sample_interval=0.1):
-        invincible_time = 1
+        invincible_time = game_setting["invincible_time"]
         view = self.window.view
         while self.running:
             view.runCommand("collideDetect")
             await asyncio.sleep(sample_interval)
             if view.property.shadow is True:
                 await asyncio.sleep(invincible_time)
+                view.property.shadow = False
 
+    @cancellableCoroutine
     async def growScoreByTime(self,
                               interval=game_setting["growScoreEverySeconds"],
                               score_per_time=game_setting["growScoreAmount"]):
@@ -148,17 +149,17 @@ class StateInGame(FSMState):
 
             t = time.time()
             if t > start + interval:
-                counts = int(np.ceil((t-start)/interval))
-                start += counts*interval
+                counts = int(np.ceil((t - start) / interval))
+                start += counts * interval
 
-                cmd.setParameter("time", counts*score_per_time)
+                cmd.setParameter("time", counts * score_per_time)
                 cmd.execute()
 
     async def startGame(self):
         view = self.window.view
         start = time.time()
         enemy_tick = start
-        generate_enemy_second = np.random.randint(6,12) / 10
+        generate_enemy_second = np.random.randint(6, 12) / 10
 
         while self.running:
             view.displayTime(start)
