@@ -23,7 +23,7 @@ def cancellableCoroutine(func):
         try:
             await func(*args, **kwargs)
         except CancelledError:
-            print(func.__name__, "cancelled")
+            logging.info(func.__name__, "cancelled")
 
     return inner
 
@@ -99,6 +99,7 @@ class View(vbao.View):
     # tasks相关
     def cancelTasks(self):
         for task in self.running_tasks:
+            logging.info("canceling", task._coro.__name__, end=' ')
             task.cancel()
             self.loop.run_until_complete(task)
         self.running_tasks.clear()
@@ -120,19 +121,6 @@ class View(vbao.View):
         pygame.display.update((rect,) + update_rect)
 
     # About display
-    def loadGif(self, img, pos, frames=4, interval=0.3):
-        if not callable(pos):
-            p = pos
-            pos = lambda: p
-        w, h = img.get_size()
-        wi = w // frames
-
-        for i in range(frames):
-            rect = [i * wi, 0, wi, h]
-            sub = img.subsurface(rect)
-            self.drawAndCover(sub, pos())
-            time.sleep(interval)
-
     @cancellableCoroutine
     async def loadGif_a(self, img, pos, frames=4, interval=0.3, endless_loop=True):
         if not callable(pos):
@@ -185,6 +173,7 @@ class View(vbao.View):
         for i in range(1, n + 1):
             self.pushTask(self.loadGif_a(pic, (i * 100, 60)))
 
+    @cancellableCoroutine
     async def updatePawn(self, pawn, sleep_time=0.1):
         def resizePos(x, y):
             nx = x * self.windowSize[0]
@@ -227,10 +216,14 @@ class View(vbao.View):
             def get_pos():
                 return self.property.player_pos
 
+            @cancellableCoroutine
+            async def tickLogicWrapper(pawn):
+                await pawn.tickLogic(get_pos, 0.1)
+
             while not queue.empty():
                 pawn = queue.get()
                 self.pushTask(self.updatePawn(pawn))
-                self.pushTask(pawn.tickLogic(get_pos, 0.1))
+                self.pushTask(tickLogicWrapper(pawn))
 
     def playJumpAnim(self):
         pic = pygame.image.load("local/img/Jump.png")

@@ -1,8 +1,8 @@
 import pygame
 
 import vbao
-from .GameView import View
-from .common import color, game_setting
+from .GameView import View, cancellableCoroutine
+from .common import game_setting
 
 import asyncio
 import threading
@@ -125,6 +125,7 @@ class StateInGame(FSMState):
         self.running = False
         self.next_state = StateScored
 
+    @cancellableCoroutine
     async def collideDetecting(self, sample_interval=0.1):
         invincible_time = game_setting["invincible_time"]
         view = self.window.view
@@ -135,6 +136,7 @@ class StateInGame(FSMState):
                 await asyncio.sleep(invincible_time)
                 view.property.shadow = False
 
+    @cancellableCoroutine
     async def growScoreByTime(self,
                               interval=game_setting["growScoreEverySeconds"],
                               score_per_time=game_setting["growScoreAmount"]):
