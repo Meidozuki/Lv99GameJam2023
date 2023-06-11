@@ -36,5 +36,6 @@ jobs:
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Try to dist executable
       run: |
-        pyinstaller -F .\run_game.py
+        ls
+        pyinstaller -F run_game.py
         cp -r local/ dist/
