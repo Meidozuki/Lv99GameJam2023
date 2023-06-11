@@ -33,12 +33,10 @@ class GameApp(vbao.App):
         self.viewmodel.runCommand("init")
 
         try:
-            self.window.timer.start()
             self.window.loop()
         except KeyboardInterrupt as e:
             print(e.args)
         finally:
-            self.window.timer.cancel()
             for th in self.window.view.running_threads:
                 th.stop()
             pygame.quit()
