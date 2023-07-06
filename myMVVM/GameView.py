@@ -167,6 +167,13 @@ class View(vbao.View):
         text = getTextFigure(font, f'Your score={score}')
         self.screen.blit(text, [300, 300])
 
+    def showHelp(self):
+        font = getFont(size=30)
+        text = getTextFigure(font, "Press 'WASD' to move.")
+        rect = pygame.Rect(0,0,*self.windowSize)
+        self.screen.blit(text, getPosAlignedByCenter(rect, text))
+        pygame.display.flip()
+
     def displayTurtle(self, n=1):
         pic = pygame.image.load(res("local/img/TurtleIdle.png"))
         pic = scalePic(pic, 2)
@@ -233,6 +240,7 @@ class View(vbao.View):
         self.loadGif(pic, (x, y), 6, 0.2)
 
     def handleKeyboardInput(self, key):
+        key = str.lower(key)
         move_val = np.array([0., 0.])
         move_dist = 0.05
         match key:

@@ -108,6 +108,9 @@ class StateInGame(FSMState):
         view.clearScreen()
 
         view.runCommand("initGame")
+        view.showHelp()
+        time.sleep(1)
+        view.clearScreen()
 
         view.displayScore(first=True)
         view.displayPawns()
