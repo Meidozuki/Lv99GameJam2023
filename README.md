@@ -25,4 +25,6 @@ python run_game.py
 
 ## play
 
-<iframe src="./markdown/simple-play.mp4"></iframe>
+![](markdown/1.gif)
+
+![](markdown/2.png)
