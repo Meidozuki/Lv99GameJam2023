@@ -7,18 +7,24 @@
 ├── myMVVM
 │   └── 代码
 
-## develop with us
+## develop
 
 ```shell
 git clone THISREPO
 cd THISREPO
 ```
 
-然后在conda prompt
+Then in conda prompt
 
 ```shell
 conda create -n NEWENV
 conda activate NEWENV
 pip install -r requirements.txt
-python run-game.py
+python run_game.py
 ```
+
+## play
+
+![](markdown/1.gif)
+
+![](markdown/2.png)
